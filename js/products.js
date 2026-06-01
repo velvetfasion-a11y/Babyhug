@@ -1,7 +1,7 @@
 export const WIX_MEDIA = "https://static.wixstatic.com/media";
 
 export function wixImage(fileId, w, h) {
-  return `${WIX_MEDIA}/${fileId}/v1/fill/w_${w},h_${h},al_c,q_90,enc_auto/${fileId}`;
+  return `${WIX_MEDIA}/${fileId}/v1/fill/w_${w},h_${h},al_c,q_85,enc_auto/${fileId}`;
 }
 
 export function formatPrice(amount) {

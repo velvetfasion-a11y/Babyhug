@@ -1,4 +1,10 @@
 import { getProductBySlug, wixImage, formatPrice } from "./products.js";
+import {
+  parseCjPrice,
+  PRICE_ADD_ON,
+  parseImageUrl,
+  productName,
+} from "./cj-products.js";
 
 const STORAGE_KEY = "babyhug-cart";
 
@@ -15,49 +21,114 @@ function writeCart(items) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
+function lineId(line) {
+  return line.id ?? line.slug ?? (line.pid ? `cj-${line.pid}` : `cj-${line.sku}`);
+}
+
 function itemCount(items) {
   return items.reduce((sum, line) => sum + line.qty, 0);
 }
 
-function lineTotal(product, qty) {
-  return product.price * qty;
+/** Resolve display fields (supports legacy slug-only lines + CJ snapshots). */
+function resolveLine(line) {
+  if (line.name && line.image && line.price != null) {
+    return {
+      id: lineId(line),
+      name: line.name,
+      image: line.image,
+      price: Number(line.price),
+      qty: line.qty,
+      slug: line.slug,
+      pid: line.pid,
+      sku: line.sku,
+    };
+  }
+
+  if (line.slug) {
+    const p = getProductBySlug(line.slug);
+    if (!p) return null;
+    return {
+      id: line.slug,
+      slug: line.slug,
+      name: p.name,
+      image: wixImage(p.image, 160, 160),
+      price: p.price,
+      qty: line.qty,
+    };
+  }
+
+  return null;
 }
 
 function cartSubtotal(items) {
   return items.reduce((sum, line) => {
-    const product = getProductBySlug(line.slug);
-    return product ? sum + lineTotal(product, line.qty) : sum;
+    const resolved = resolveLine(line);
+    return resolved ? sum + resolved.price * resolved.qty : sum;
   }, 0);
 }
 
-export function addToCart(slug, qty = 1) {
+/**
+ * Add any product to cart (local slug catalog or CJ product with pid/sku).
+ */
+export function addToCartItem(item, qty = 1) {
   const amount = Math.max(1, Math.min(99, parseInt(String(qty), 10) || 1));
+  const id = item.id ?? item.slug ?? (item.pid ? `cj-${item.pid}` : `cj-${item.sku}`);
+
+  const line = {
+    id,
+    qty: amount,
+    name: item.name,
+    image: item.image,
+    price: Number(item.price),
+    slug: item.slug,
+    pid: item.pid,
+    sku: item.sku,
+  };
+
   const items = readCart();
-  const existing = items.find((line) => line.slug === slug);
+  const existing = items.find((l) => lineId(l) === id);
   if (existing) {
     existing.qty = Math.min(99, existing.qty + amount);
+    if (!existing.name) Object.assign(existing, line);
   } else {
-    items.push({ slug, qty: amount });
+    items.push(line);
   }
   writeCart(items);
   renderCart();
   return items;
 }
 
-function setLineQty(slug, qty) {
+/** Add a product from the local Wix catalog (products.js). */
+export function addToCart(slug, qty = 1) {
+  const product = getProductBySlug(slug);
+  if (!product) return readCart();
+
+  return addToCartItem(
+    {
+      id: slug,
+      slug,
+      name: product.name,
+      image: wixImage(product.image, 160, 160),
+      price: product.price,
+    },
+    qty
+  );
+}
+
+function setLineQty(id, qty) {
   let items = readCart();
   if (qty < 1) {
-    items = items.filter((line) => line.slug !== slug);
+    items = items.filter((line) => lineId(line) !== id);
   } else {
-    const line = items.find((l) => l.slug === slug);
+    const line = items.find((l) => lineId(l) === id);
     if (line) line.qty = Math.min(99, qty);
   }
   writeCart(items);
   renderCart();
 }
 
-function removeLine(slug) {
-  writeCart(readCart().filter((line) => line.slug !== slug));
+function removeLine(id) {
+  writeCart(readCart().filter((line) => lineId(line) !== id));
   renderCart();
 }
 
@@ -123,6 +194,14 @@ function trashIcon() {
   return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>`;
 }
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function renderCartItems(items) {
   const container = document.getElementById("cart-items");
   const emptyEl = document.getElementById("cart-empty");
@@ -131,7 +210,8 @@ function renderCartItems(items) {
   const footer = document.querySelector(".cart-drawer-footer");
   if (!container) return;
 
-  const count = itemCount(items);
+  const resolved = items.map(resolveLine).filter(Boolean);
+  const count = itemCount(resolved);
 
   if (!count) {
     container.innerHTML = "";
@@ -147,24 +227,23 @@ function renderCartItems(items) {
   promoBtn.hidden = false;
   footer.hidden = false;
 
-  container.innerHTML = items
+  container.innerHTML = resolved
     .map((line) => {
-      const product = getProductBySlug(line.slug);
-      if (!product) return "";
-      const total = formatPrice(lineTotal(product, line.qty));
+      const total = formatPrice(line.price * line.qty);
+      const name = escapeHtml(line.name);
       return `
-        <article class="cart-line" data-slug="${product.slug}">
+        <article class="cart-line" data-line-id="${escapeHtml(line.id)}">
           <img
             class="cart-line-img"
-            src="${wixImage(product.image, 160, 160)}"
+            src="${escapeHtml(line.image)}"
             alt=""
             width="80"
             height="80"
           />
           <div class="cart-line-body">
             <div class="cart-line-top">
-              <h3 class="cart-line-name">${product.name}</h3>
-              <button type="button" class="cart-line-remove" aria-label="Remove ${product.name}">
+              <h3 class="cart-line-name">${name}</h3>
+              <button type="button" class="cart-line-remove" aria-label="Remove ${name}">
                 ${trashIcon()}
               </button>
             </div>
@@ -183,31 +262,32 @@ function renderCartItems(items) {
     .join("");
 
   container.querySelectorAll(".cart-line").forEach((row) => {
-    const slug = row.dataset.slug;
-    row.querySelector(".cart-line-remove")?.addEventListener("click", () => removeLine(slug));
+    const id = row.dataset.lineId;
+    row.querySelector(".cart-line-remove")?.addEventListener("click", () => removeLine(id));
     row.querySelector(".cart-qty-minus")?.addEventListener("click", () => {
-      const line = readCart().find((l) => l.slug === slug);
-      if (line) setLineQty(slug, line.qty - 1);
+      const line = readCart().find((l) => lineId(l) === id);
+      if (line) setLineQty(id, line.qty - 1);
     });
     row.querySelector(".cart-qty-plus")?.addEventListener("click", () => {
-      const line = readCart().find((l) => l.slug === slug);
-      if (line) setLineQty(slug, line.qty + 1);
+      const line = readCart().find((l) => lineId(l) === id);
+      if (line) setLineQty(id, line.qty + 1);
     });
   });
 }
 
 export function renderCart() {
-  const items = readCart().filter((line) => getProductBySlug(line.slug));
-  if (items.length !== readCart().length) writeCart(items);
+  const raw = readCart();
+  const valid = raw.filter((line) => resolveLine(line));
+  if (valid.length !== raw.length) writeCart(valid);
 
-  const count = itemCount(items);
+  const count = itemCount(valid);
   const title = document.getElementById("cart-drawer-title");
   const totalEl = document.getElementById("cart-estimated-total");
 
   if (title) title.textContent = cartTitle(count);
-  if (totalEl) totalEl.textContent = formatPrice(cartSubtotal(items));
+  if (totalEl) totalEl.textContent = formatPrice(cartSubtotal(valid));
 
-  renderCartItems(items);
+  renderCartItems(valid);
   updateCartButtons(count);
 }
 

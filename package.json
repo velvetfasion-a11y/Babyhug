@@ -2,6 +2,9 @@
   "name": "babyhug",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js"

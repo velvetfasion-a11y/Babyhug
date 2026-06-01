@@ -5,6 +5,7 @@ import {
   productName,
 } from "./cj-products.js";
 import { initCart } from "./cart.js";
+import { whenIdle } from "./perf.js";
 
 function initMobileNav() {
   const toggle = document.querySelector(".menu-toggle");
@@ -117,7 +118,7 @@ async function init() {
   let allProducts = [];
 
   try {
-    const data = await fetchCJProducts(68);
+    const data = await fetchCJProducts(24);
     allProducts = data.products;
   } catch (err) {
     console.error(err);
@@ -156,6 +157,6 @@ async function init() {
 
 document.addEventListener("DOMContentLoaded", () => {
   initMobileNav();
-  initCart();
+  whenIdle(() => initCart());
   init();
 });

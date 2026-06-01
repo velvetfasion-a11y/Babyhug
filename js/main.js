@@ -1,5 +1,6 @@
 import { PRODUCTS, wixImage, formatPrice, productUrl } from "./products.js";
 import { initCart } from "./cart.js";
+import { whenIdle } from "./perf.js";
 
 function renderProducts() {
   const track = document.getElementById("products-carousel");
@@ -16,7 +17,7 @@ function renderProducts() {
     return `
       <a href="${productUrl(product.slug)}" class="product-card">
         <div class="product-image-wrap">
-          <img src="${wixImage(product.image, 600, 600)}" alt="${product.name}" width="600" height="600" loading="lazy" />
+          <img src="${wixImage(product.image, 440, 440)}" alt="${product.name}" width="440" height="440" loading="lazy" decoding="async" />
           ${badge}
         </div>
         <h3 class="product-name">${product.name}</h3>
@@ -94,5 +95,5 @@ document.addEventListener("DOMContentLoaded", () => {
   renderProducts();
   initMobileNav();
   initNewsletter();
-  initCart();
+  whenIdle(() => initCart());
 });

@@ -3,8 +3,15 @@ import {
   wixImage,
   formatPrice,
 } from "./products.js";
-import { formatDisplayPrice } from "./cj-products.js";
-import { initCart, addToCart, openCartDrawer } from "./cart.js";
+import {
+  formatDisplayPrice,
+  parseImageUrl,
+  productName,
+  parseCjPrice,
+  PRICE_ADD_ON,
+} from "./cj-products.js";
+import { apiUrl } from "./config.js";
+import { initCart, addToCart, addToCartItem, openCartDrawer } from "./cart.js";
 
 function initMobileNav() {
   const toggle = document.querySelector(".menu-toggle");
@@ -72,7 +79,7 @@ function initGallery(product) {
   const images = product.image
     ? [product.image, product.image, product.image]
     : parseCjImages(product);
-  const name = product.name ?? cjProductName(product);
+  const name = product.name ?? productName(product);
 
   thumbs.forEach((btn, i) => {
     btn.addEventListener("click", () => {
@@ -86,15 +93,54 @@ function initGallery(product) {
   });
 }
 
+function productToCartItem(product) {
+  if (product.slug && getProductBySlug(product.slug)) {
+    const p = getProductBySlug(product.slug);
+    return {
+      id: product.slug,
+      slug: product.slug,
+      name: p.name,
+      image: wixImage(p.image, 160, 160),
+      price: p.price,
+    };
+  }
+
+  const pid = product.pid ?? product.productId;
+  const sku = product.productSku ?? product.sku ?? "";
+  const id = pid ? `cj-${pid}` : sku ? `cj-${sku}` : `cj-${Date.now()}`;
+  const base = parseCjPrice(product.sellPrice) ?? product.price ?? 0;
+  const price =
+    product.price != null && !product.sellPrice
+      ? Number(product.price)
+      : base + PRICE_ADD_ON;
+
+  return {
+    id,
+    pid: pid ? String(pid) : undefined,
+    sku: sku || undefined,
+    name: product.name ?? productName(product),
+    image: product.image ? wixImage(product.image, 160, 160) : parseImageUrl(product),
+    price,
+  };
+}
+
 function initAddToCart(product) {
   const btn = document.getElementById("add-to-cart");
   if (!btn) return;
 
-  btn.addEventListener("click", () => {
+  const handler = () => {
     const qty = document.getElementById("product-qty")?.value || "1";
-    addToCart(product.slug, qty);
+    const item = productToCartItem(product);
+    if (item.slug && getProductBySlug(item.slug)) {
+      addToCart(item.slug, qty);
+    } else {
+      addToCartItem(item, qty);
+    }
     openCartDrawer();
-  });
+  };
+
+  btn.replaceWith(btn.cloneNode(true));
+  document.getElementById("add-to-cart")?.addEventListener("click", handler);
 }
 
 function parseCjImages(product) {
@@ -112,12 +158,8 @@ function parseCjImages(product) {
   return images.filter(Boolean);
 }
 
-function cjProductName(product) {
-  return product.productNameEn ?? product.nameEn ?? product.productName ?? product.productSku ?? "Product";
-}
-
 function renderProduct(product) {
-  const name = product.name ?? cjProductName(product);
+  const name = product.name ?? productName(product);
   const sku = product.sku ?? product.productSku ?? "";
   const images = product.image ? [product.image] : parseCjImages(product);
   const mainImage = images[0] ?? "";
@@ -198,7 +240,7 @@ function showNotFound() {
 
 async function loadCjProduct(pid, sku) {
   const q = pid ? `pid=${encodeURIComponent(pid)}` : `sku=${encodeURIComponent(sku)}`;
-  const res = await fetch(`/api/product?${q}`);
+  const res = await fetch(apiUrl(`/api/product?${q}`));
 
   if (!res.ok) {
     const raw = await res.text();
@@ -219,6 +261,7 @@ async function loadCjProduct(pid, sku) {
   initQuantity();
   initAccordions();
   initGallery(product);
+  initAddToCart(product);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

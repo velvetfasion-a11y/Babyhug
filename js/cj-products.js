@@ -1,3 +1,6 @@
+import { apiUrl } from "./config.js";
+import { loadWhenVisible } from "./perf.js";
+
 export function escapeHtml(text) {
   return String(text ?? "")
     .replace(/&/g, "&amp;")
@@ -68,7 +71,6 @@ export function productPageUrl(product) {
 }
 
 export function buildProductCard(product, cardClass = "cj-product-card") {
-  console.log(product);
   const name = escapeHtml(productName(product));
   const image = escapeHtml(parseImageUrl(product));
   const price = escapeHtml(formatDisplayPrice(product.sellPrice));
@@ -77,7 +79,7 @@ export function buildProductCard(product, cardClass = "cj-product-card") {
   return `
     <a href="${href}" class="${cardClass}" role="listitem">
       <div class="${cardClass}-img">
-        <img src="${image}" alt="${name}" width="400" height="500" loading="lazy" />
+        <img src="${image}" alt="${name}" width="400" height="500" loading="lazy" decoding="async" />
       </div>
       <div class="${cardClass}-info">
         <h3 class="${cardClass}-name">${name}</h3>
@@ -88,25 +90,24 @@ export function buildProductCard(product, cardClass = "cj-product-card") {
 }
 
 export async function fetchCJProducts(pageSize = 68) {
-  const res = await fetch(`/api/products?pageNum=1&pageSize=${pageSize}`);
+  const res = await fetch(apiUrl(`/api/products?pageNum=1&pageSize=${pageSize}`));
   if (!res.ok) {
     const raw = await res.text();
     throw new Error(`API ${res.status}: ${raw.slice(0, 200)}`);
   }
   const data = await res.json();
-  console.log("Full CJ products response:", data);
   return {
     products: data?.data?.content ?? [],
     total: data?.data?.totalRecords ?? 0,
   };
 }
 
-export async function loadCJProducts() {
+export async function loadCJProducts(pageSize = 12) {
   const container = document.getElementById("cj-products-grid");
   if (!container) return;
 
   try {
-    const { products, total } = await fetchCJProducts(24);
+    const { products, total } = await fetchCJProducts(pageSize);
 
     if (!products.length) {
       container.innerHTML = "<p>No products in your CJ catalog yet.</p>";
@@ -123,4 +124,13 @@ export async function loadCJProducts() {
     console.error("Fetch failed:", err);
     container.innerHTML = `<p class="cj-error">Could not load products. Run <code>npm run dev</code> and open <a href="http://localhost:3000">localhost:3000</a>.</p>`;
   }
+}
+
+/** Defer CJ API until the grid is near the viewport (faster first paint). */
+export function initCJProductsLazy() {
+  const section = document.querySelector(".cj-products-section");
+  const grid = document.getElementById("cj-products-grid");
+  if (!section || !grid) return;
+
+  loadWhenVisible(section, () => loadCJProducts(12));
 }
