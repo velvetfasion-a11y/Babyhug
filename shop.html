@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shop All | Baby Hug</title>
+    <meta name="description" content="Browse our full collection of organic essentials and hand-crafted treasures for your little one." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Epilogue:ital,wght@0,300;0,400;0,500;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="page-shop">
+    <div class="promo-bar" aria-hidden="true">
+      <div class="promo-track">
+        <span>Complimentary gift wrapping on all orders over $120</span>
+        <span>Complimentary gift wrapping on all orders over $120</span>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+
+        <nav class="nav-left" aria-label="Primary">
+          <a href="shop.html" class="is-active">Shop All</a>
+          <a href="shop.html?category=Boy">Boy</a>
+          <a href="shop.html?category=Girl">Girl</a>
+          <a href="shop.html?category=Toys">Toys</a>
+        </nav>
+
+        <a href="index.html" class="logo">Baby Hug</a>
+
+        <nav class="nav-right" aria-label="Secondary">
+          <a href="shop.html?badge=Sale">Sale</a>
+          <a href="index.html#about">About</a>
+          <button type="button" class="cart-btn" aria-label="Cart, 0 items">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 6h15l-1.5 9h-12z" />
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="18" cy="20" r="1" />
+              <path d="M6 6L5 3H2" />
+            </svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile">
+      <button type="button" class="mobile-nav-close" aria-label="Close menu">&times;</button>
+      <a href="shop.html">Shop All</a>
+      <a href="shop.html?category=Boy">Boy</a>
+      <a href="shop.html?category=Girl">Girl</a>
+      <a href="shop.html?category=Toys">Toys</a>
+      <a href="shop.html?badge=Sale">Sale</a>
+      <a href="index.html#about">About</a>
+    </nav>
+
+    <main class="shop-page">
+      <div class="container">
+        <div class="shop-header">
+          <h1 id="shop-heading" class="shop-heading">Shop All</h1>
+          <p id="shop-count" class="shop-count"></p>
+        </div>
+
+        <div class="shop-toolbar">
+          <div class="shop-filters" role="group" aria-label="Filter by">
+            <button type="button" class="filter-btn is-active" data-filter="all">All</button>
+            <button type="button" class="filter-btn" data-filter="Boy">Boy</button>
+            <button type="button" class="filter-btn" data-filter="Girl">Girl</button>
+            <button type="button" class="filter-btn" data-filter="Toys">Toys</button>
+            <button type="button" class="filter-btn" data-filter="Sale">Sale</button>
+            <button type="button" class="filter-btn" data-filter="New Arrival">New In</button>
+            <button type="button" class="filter-btn" data-filter="Best Seller">Best Sellers</button>
+          </div>
+
+          <div class="shop-sort">
+            <label for="sort-select" class="sort-label">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M3 6h18M6 12h12M10 18h4" />
+              </svg>
+              Sort
+            </label>
+            <select id="sort-select" class="sort-select" aria-label="Sort products">
+              <option value="default">Featured</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Name: A–Z</option>
+              <option value="name-desc">Name: Z–A</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="shop-grid" class="shop-grid" role="list" aria-live="polite" aria-label="Products"></div>
+
+        <p id="shop-no-results" class="shop-no-results" hidden>
+          No products match your filters. <button type="button" id="shop-clear-btn" class="shop-clear-link">Clear filters</button>
+        </p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <span class="logo">Baby Hug</span>
+            <p>500 Terry Francine St<br />San Francisco, CA 94158<br /><a href="mailto:info@mysite.com">info@mysite.com</a></p>
+          </div>
+          <div class="footer-col">
+            <h4>Shop</h4>
+            <ul>
+              <li><a href="shop.html">Shop All</a></li>
+              <li><a href="shop.html?category=Boy">Boy</a></li>
+              <li><a href="shop.html?category=Girl">Girl</a></li>
+              <li><a href="shop.html?category=Toys">Toys</a></li>
+              <li><a href="shop.html?badge=Sale">Sale</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Customer Care</h4>
+            <ul>
+              <li><a href="#">Shipping Policy</a></li>
+              <li><a href="#">Refund Policy</a></li>
+              <li><a href="#">FAQ</a></li>
+              <li><a href="#">Gifting Guide</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Legal</h4>
+            <ul>
+              <li><a href="#">Privacy Policy</a></li>
+              <li><a href="#">Terms &amp; Conditions</a></li>
+              <li><a href="#">Accessibility Statement</a></li>
+              <li><a href="index.html#about">Our Philosophy</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>&copy; 2035 Baby Hug</span>
+        </div>
+      </div>
+    </footer>
+
+    <script type="module" src="js/shop.js"></script>
+  </body>
+</html>
