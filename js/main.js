@@ -1,32 +1,27 @@
-import { PRODUCTS, wixImage, formatPrice, productUrl } from "./products.js";
+import { fetchCJProducts, buildCarouselCard } from "./cj-products.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
 
-function renderProducts() {
+async function renderKeepsakesCarousel() {
   const track = document.getElementById("products-carousel");
   if (!track) return;
 
-  track.innerHTML = PRODUCTS.map((product) => {
-    const badge = product.badge
-      ? `<span class="product-badge">${product.badge}</span>`
-      : "";
-    const priceHtml = product.originalPrice
-      ? `<p class="product-price product-price--sale"><s>${formatPrice(product.originalPrice)}</s><span>${formatPrice(product.price)}</span></p>`
-      : `<p class="product-price">${formatPrice(product.price)}</p>`;
+  track.innerHTML = `<p class="carousel-loading">Loading favorites…</p>`;
 
-    return `
-      <a href="${productUrl(product.slug)}" class="product-card">
-        <div class="product-image-wrap">
-          <img src="${wixImage(product.image, 440, 440)}" alt="${product.name}" width="440" height="440" loading="lazy" decoding="async" />
-          ${badge}
-        </div>
-        <h3 class="product-name">${product.name}</h3>
-        ${priceHtml}
-      </a>
-    `;
-  }).join("");
+  try {
+    const { products } = await fetchCJProducts(12);
 
-  initCarouselArrows(track);
+    if (!products.length) {
+      track.innerHTML = `<p class="carousel-loading">No products in your catalog yet.</p>`;
+      return;
+    }
+
+    track.innerHTML = products.map((p) => buildCarouselCard(p)).join("");
+    initCarouselArrows(track);
+  } catch (err) {
+    console.error("Keepsakes carousel:", err);
+    track.innerHTML = `<p class="carousel-loading">Could not load favorites. Check that the server is running.</p>`;
+  }
 }
 
 function initCarouselArrows(track) {
@@ -92,7 +87,7 @@ function initNewsletter() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  renderProducts();
+  renderKeepsakesCarousel();
   initMobileNav();
   initNewsletter();
   whenIdle(() => initCart());

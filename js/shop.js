@@ -1,8 +1,10 @@
 import {
   buildProductCard,
-  fetchCJProducts,
+  fetchAllCJProducts,
   priceNumber,
+  productMatchesFilter,
   productName,
+  productsLoadErrorHtml,
 } from "./cj-products.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
@@ -58,11 +60,7 @@ function renderGrid(products, activeFilter, sortValue) {
 
   let filtered = products;
   if (activeFilter && activeFilter !== "all") {
-    const q = activeFilter.toLowerCase();
-    filtered = products.filter((p) => {
-      const name = productName(p).toLowerCase();
-      return name.includes(q);
-    });
+    filtered = products.filter((p) => productMatchesFilter(p, activeFilter));
   }
 
   filtered = sortProducts(filtered, sortValue);
@@ -117,12 +115,14 @@ async function init() {
   let sortValue = "default";
   let allProducts = [];
 
+  grid.innerHTML = `<p class="cj-loading">Loading products…</p>`;
+
   try {
-    const data = await fetchCJProducts(24);
+    const data = await fetchAllCJProducts();
     allProducts = data.products;
   } catch (err) {
     console.error(err);
-    grid.innerHTML = `<p class="cj-error">Could not load products. Run <code>npm run dev</code> in the terminal, then open <a href="http://localhost:3000/shop.html">http://localhost:3000/shop.html</a> (not a file:// link).</p>`;
+    grid.innerHTML = productsLoadErrorHtml(err);
     return;
   }
 

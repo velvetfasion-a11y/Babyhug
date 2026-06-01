@@ -1,0 +1,13 @@
+# Deploy on Render: New → Blueprint → connect repo
+services:
+  - type: web
+    name: babyhug
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CJ_API_KEY
+        sync: false

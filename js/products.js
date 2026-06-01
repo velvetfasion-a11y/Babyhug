@@ -16,7 +16,7 @@ export function slugify(name) {
 }
 
 export function productUrl(slug) {
-  return `product.html?id=${encodeURIComponent(slug)}`;
+  return `/product.html?id=${encodeURIComponent(slug)}`;
 }
 
 const defaultDescription =

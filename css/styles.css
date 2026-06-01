@@ -712,6 +712,13 @@ section {
   display: none;
 }
 
+.carousel-loading {
+  flex: 0 0 100%;
+  color: var(--sage-mid);
+  font-size: 14px;
+  padding: 48px 0;
+}
+
 .product-card {
   display: block;
   flex: 0 0 min(220px, 42vw);

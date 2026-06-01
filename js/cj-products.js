@@ -63,11 +63,64 @@ export function formatSellPrice(sellPrice) {
   return formatDisplayPrice(sellPrice);
 }
 
+function productCategoryText(product) {
+  return [
+    product.categoryFirstName,
+    product.categorySecondName,
+    product.categoryThreeName,
+    product.categoryName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** Match shop filter buttons (Boy, Girl, Sale, etc.) against CJ fields. */
+export function productMatchesFilter(product, filter) {
+  if (!filter || filter === "all") return true;
+
+  const name = productName(product).toLowerCase();
+  const cat = productCategoryText(product);
+
+  if (filter === "Sale") {
+    return product.discountPrice != null && product.discountPrice !== "";
+  }
+
+  const q = filter.toLowerCase();
+  return name.includes(q) || cat.includes(q);
+}
+
 export function productPageUrl(product) {
   const params = new URLSearchParams();
-  if (product.productId) params.set("pid", product.productId);
-  if (product.sku || product.productSku) params.set("sku", product.sku || product.productSku);
-  return `product.html?${params}`;
+  const pid = product.pid ?? product.productId;
+  const sku = product.productSku ?? product.sku;
+  if (pid) params.set("pid", String(pid));
+  if (sku) params.set("sku", String(sku));
+  const qs = params.toString();
+  return qs ? `/product.html?${qs}` : "/product.html";
+}
+
+/** Cherished Keepsakes horizontal carousel (matches .product-card styles). */
+export function buildCarouselCard(product) {
+  const name = escapeHtml(productName(product));
+  const image = escapeHtml(parseImageUrl(product));
+  const price = escapeHtml(formatDisplayPrice(product.sellPrice));
+  const href = productPageUrl(product);
+  const badge =
+    product.discountPrice != null && product.discountPrice !== ""
+      ? `<span class="product-badge">Sale</span>`
+      : "";
+
+  return `
+    <a href="${href}" class="product-card" role="listitem">
+      <div class="product-image-wrap">
+        <img src="${image}" alt="${name}" width="440" height="440" loading="lazy" decoding="async" />
+        ${badge}
+      </div>
+      <h3 class="product-name">${name}</h3>
+      <p class="product-price">${price}</p>
+    </a>
+  `;
 }
 
 export function buildProductCard(product, cardClass = "cj-product-card") {
@@ -89,17 +142,78 @@ export function buildProductCard(product, cardClass = "cj-product-card") {
   `;
 }
 
-export async function fetchCJProducts(pageSize = 68) {
-  const res = await fetch(apiUrl(`/api/products?pageNum=1&pageSize=${pageSize}`));
+export async function fetchCJProducts(pageSize = 68, pageNum = 1) {
+  const url = apiUrl(`/api/products?pageNum=${pageNum}&pageSize=${pageSize}`);
+  const res = await fetch(url);
+  const raw = await res.text();
+
   if (!res.ok) {
-    const raw = await res.text();
-    throw new Error(`API ${res.status}: ${raw.slice(0, 200)}`);
+    const err = new Error(`API ${res.status}`);
+    err.status = res.status;
+    err.body = raw;
+    throw err;
   }
-  const data = await res.json();
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    const err = new Error("API returned non-JSON (is the Node server running?)");
+    err.status = res.status;
+    err.body = raw;
+    throw err;
+  }
+
   return {
     products: data?.data?.content ?? [],
     total: data?.data?.totalRecords ?? 0,
+    raw: data,
   };
+}
+
+/** Load every page from CJ (for Shop All). */
+export async function fetchAllCJProducts(pageSize = 50) {
+  const all = [];
+  let pageNum = 1;
+  let totalRecords = 0;
+
+  while (pageNum <= 20) {
+    const { products, total } = await fetchCJProducts(pageSize, pageNum);
+    totalRecords = total || totalRecords;
+    if (!products.length) break;
+    all.push(...products);
+    if (all.length >= totalRecords) break;
+    pageNum += 1;
+  }
+
+  return { products: all, total: totalRecords || all.length };
+}
+
+/** User-facing message when /api/products fails. */
+export function productsLoadErrorHtml(err) {
+  const { protocol, hostname } = window.location;
+
+  if (protocol === "file:") {
+    return `<p class="cj-error">This page was opened as a file on your computer. Run <code>npm run dev</code>, then open <a href="http://localhost:3000/shop.html">http://localhost:3000/shop.html</a>.</p>`;
+  }
+
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `<p class="cj-error">Could not load products from the API. Run <code>npm run dev</code> in the project folder. If you see “port already in use”, stop the old server with <code>lsof -ti:3000 | xargs kill</code>, then run <code>npm run dev</code> again and open <a href="http://localhost:3000/shop.html">http://localhost:3000/shop.html</a>.</p>`;
+  }
+
+  if (err?.status === 503 || String(err?.body ?? "").includes("CJ_API_KEY")) {
+    return `<p class="cj-error">The server is running but <code>CJ_API_KEY</code> is missing. Add your CJ API key in your host’s environment variables (e.g. Render → Environment), then redeploy.</p>`;
+  }
+
+  if (
+    err?.status === 404 ||
+    String(err?.body ?? "").trimStart().startsWith("<!") ||
+    String(err?.message ?? "").includes("non-JSON")
+  ) {
+    return `<p class="cj-error"><strong>${hostname}</strong> is not running the product API. Uploading HTML only is not enough — deploy the full project with <code>npm start</code> (see README: Render + <code>CJ_API_KEY</code>, then point your domain there).</p>`;
+  }
+
+  return `<p class="cj-error">Could not load products. Please try again in a moment.</p>`;
 }
 
 export async function loadCJProducts(pageSize = 12) {
@@ -122,7 +236,7 @@ export async function loadCJProducts(pageSize = 12) {
     container.innerHTML = products.map((p) => buildProductCard(p)).join("");
   } catch (err) {
     console.error("Fetch failed:", err);
-    container.innerHTML = `<p class="cj-error">Could not load products. Run <code>npm run dev</code> and open <a href="http://localhost:3000">localhost:3000</a>.</p>`;
+    container.innerHTML = productsLoadErrorHtml(err);
   }
 }
 

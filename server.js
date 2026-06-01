@@ -137,6 +137,21 @@ app.get("/api/products", async (req, res) => {
   }
 });
 
+async function fetchCjProductDetail(token, pid, productSku) {
+  const attempts = [];
+  if (pid) attempts.push(new URLSearchParams({ pid: String(pid) }));
+  if (productSku) attempts.push(new URLSearchParams({ productSku: String(productSku) }));
+
+  for (const params of attempts) {
+    const detailRes = await fetch(`${CJ_BASE}/product/query?${params}`, {
+      headers: { "CJ-Access-Token": token },
+    });
+    const detailData = await detailRes.json();
+    if (detailData?.success && detailData?.data) return detailData;
+  }
+  return null;
+}
+
 app.get("/api/product", async (req, res) => {
   if (!requireApiKey(res)) return;
 
@@ -152,15 +167,18 @@ app.get("/api/product", async (req, res) => {
       return res.status(400).json({ error: "Provide pid or sku query parameter" });
     }
 
-    const params = new URLSearchParams();
-    if (pid) params.set("pid", pid);
-    else params.set("productSku", productSku);
-
-    const detailRes = await fetch(`${CJ_BASE}/product/query?${params}`, {
-      headers: { "CJ-Access-Token": token },
-    });
-    const detailData = await detailRes.json();
+    const detailData = await fetchCjProductDetail(token, pid, productSku);
     res.setHeader("Cache-Control", "public, max-age=120");
+
+    if (!detailData) {
+      return res.status(404).json({
+        success: false,
+        error: "Product not found in CJ catalog",
+        pid,
+        productSku,
+      });
+    }
+
     res.json(detailData);
   } catch (err) {
     apiError(res, err);
@@ -179,7 +197,17 @@ app.get(["/product", "/product/"], (req, res) => {
   res.redirect(302, `/product.html${query}`);
 });
 
-// ── Static frontend (index.html, css/, js/, images, …) ───────────
+// ── HTML pages (explicit routes so product.html is always served) ─
+
+const HTML_PAGES = ["index.html", "shop.html", "product.html"];
+
+for (const file of HTML_PAGES) {
+  app.get(`/${file}`, (req, res) => {
+    res.sendFile(path.join(ROOT_DIR, file));
+  });
+}
+
+// ── Static frontend (css/, js/, …) ───────────────────────────────
 
 app.use(
   express.static(ROOT_DIR, {

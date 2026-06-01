@@ -228,32 +228,47 @@ function renderProduct(product) {
     `https://twitter.com/intent/tweet?text=${shareText}&url=${shareUrl}`;
 }
 
-function showNotFound() {
+function showNotFound(message = "") {
   document.querySelector(".product-page")?.classList.add("product-page--missing");
   const layout = document.querySelector(".product-layout");
   if (layout) {
-    layout.innerHTML =
-      '<p class="product-missing">Product not found. <a href="index.html#shop">Return to shop</a></p>';
+    const detail = message
+      ? `<p class="product-missing-detail">${message}</p>`
+      : "";
+    layout.innerHTML = `
+      <p class="product-missing">Product not found.</p>
+      ${detail}
+      <p><a href="/shop.html">Back to Shop All</a> · <a href="/">Home</a></p>
+    `;
   }
   document.title = "Product | Baby Hug";
 }
 
 async function loadCjProduct(pid, sku) {
-  const q = pid ? `pid=${encodeURIComponent(pid)}` : `sku=${encodeURIComponent(sku)}`;
-  const res = await fetch(apiUrl(`/api/product?${q}`));
+  const params = new URLSearchParams();
+  if (pid) params.set("pid", pid);
+  if (sku) params.set("sku", sku);
+
+  if (!params.toString()) {
+    showNotFound("Missing product id in the link.");
+    return;
+  }
+
+  const res = await fetch(apiUrl(`/api/product?${params}`));
 
   if (!res.ok) {
     const raw = await res.text();
     console.error(`/api/product returned ${res.status}:`, raw);
-    showNotFound();
+    showNotFound(`Could not load product (${res.status}). Check that CJ_API_KEY is set on the server.`);
     return;
   }
 
   const data = await res.json();
-  console.log("CJ product detail:", data);
   const product = data?.data;
-  if (!product) {
-    showNotFound();
+
+  if (!data?.success || !product) {
+    console.error("CJ product detail failed:", data);
+    showNotFound(data?.message || data?.error || "This item is not available.");
     return;
   }
 

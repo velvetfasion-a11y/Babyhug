@@ -18,15 +18,15 @@ function isLocalHost() {
 
 function isBabyHugSite() {
   const h = window.location.hostname;
-  return h === "babyhug.se" || h === "www.babyhug.se";
+  return (
+    h === "babyhug.se" ||
+    h === "www.babyhug.se" ||
+    h.endsWith(".onrender.com")
+  );
 }
 
 export const API_BASE = (() => {
-  if (isLocalHost()) return "";
-
-  // Same-origin: Express serves HTML + /api on babyhug.se
-  if (isBabyHugSite()) return "";
-
+  if (isLocalHost() || isBabyHugSite()) return "";
   return "";
 })();
 
