@@ -2,7 +2,6 @@
  * Single profile icon in the header — links to login or profile based on Firebase Auth.
  */
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase-config.js";
 
 const PROFILE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
   <circle cx="12" cy="8" r="4" />
@@ -26,13 +25,29 @@ function applyNavLink(el, user) {
   }
 }
 
-export function initAuthNav() {
+export async function initAuthNav() {
   const btn = document.getElementById("nav-profile-btn");
   const mobile = document.getElementById("nav-profile-mobile");
-  if ((!btn && !mobile) || !auth) return;
+  if (!btn && !mobile) return;
 
   if (btn && !btn.querySelector("svg")) {
     btn.innerHTML = PROFILE_ICON;
+  }
+
+  let auth = null;
+  try {
+    ({ auth } = await import("./firebase-config.js"));
+  } catch (err) {
+    console.warn("Auth nav: Firebase config unavailable", err);
+    applyNavLink(btn, null);
+    applyNavLink(mobile, null);
+    return;
+  }
+
+  if (!auth) {
+    applyNavLink(btn, null);
+    applyNavLink(mobile, null);
+    return;
   }
 
   onAuthStateChanged(auth, (user) => {

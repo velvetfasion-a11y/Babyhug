@@ -192,12 +192,18 @@ input {
   text-underline-offset: 4px;
 }
 
+.nav-right .profile-btn {
+  flex-shrink: 0;
+}
+
 .profile-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0;
   border: none;
   border-radius: 50%;

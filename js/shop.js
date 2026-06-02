@@ -57,7 +57,9 @@ function sortProducts(products, sortValue) {
 }
 
 function renderGrid(products, activeFilter, sortValue) {
-  const grid = document.getElementById("shop-grid");
+  const grid =
+    document.getElementById("product-grid") ||
+    document.getElementById("shop-grid");
   const noResults = document.getElementById("shop-no-results");
   const countEl = document.getElementById("shop-count");
   if (!grid) return;
@@ -117,7 +119,9 @@ function updateHeading(activeFilter) {
 }
 
 async function init() {
-  const grid = document.getElementById("shop-grid");
+  const grid =
+    document.getElementById("product-grid") ||
+    document.getElementById("shop-grid");
   if (!grid) return;
 
   const { category, badge } = getParamsFromUrl();

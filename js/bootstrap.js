@@ -7,9 +7,9 @@ import { initAuthNav } from "./auth-nav.js";
 export async function bootstrap() {
   try {
     await Promise.all([initStoreCurrency(), initFirebase()]);
-    initI18n();
-    initAuthNav();
   } catch (err) {
     console.error("Bootstrap failed:", err);
   }
+  initI18n();
+  initAuthNav().catch((err) => console.warn("Auth nav init failed:", err));
 }

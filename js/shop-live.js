@@ -1,6 +1,5 @@
 /**
- * Shop page: real-time product grid from Firestore `products` collection.
- * Falls back to CJ API catalog if Firestore is empty or unavailable.
+ * Shop page: CJ catalog (primary) + optional real-time Firestore `products` overlay.
  */
 import {
   attachProductCardPrefetch,
@@ -12,7 +11,6 @@ import {
   productName,
   productsLoadErrorHtml,
 } from "./cj-products.js";
-import { listenToProductsCollection } from "./firestore-products-live.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
 import { t } from "./i18n.js";
@@ -24,7 +22,8 @@ let gridEl = null;
 let allProducts = [];
 let activeFilter = "all";
 let sortValue = "default";
-let cjFallbackLoaded = false;
+let cjLoadStarted = false;
+let cjLoadDone = false;
 let unsubscribeFirestore = null;
 
 function getProductGrid() {
@@ -50,7 +49,7 @@ function sortProducts(products, sort) {
   }
 }
 
-/** Clear grid and render cards from latest Firestore snapshot. */
+/** Clear grid and render cards. */
 export function renderProductGrid(products, filter = activeFilter, sort = sortValue) {
   gridEl = getProductGrid();
   const noResults = document.getElementById("shop-no-results");
@@ -90,46 +89,47 @@ export function renderProductGrid(products, filter = activeFilter, sort = sortVa
   }
 }
 
-async function loadCjFallback() {
-  if (cjFallbackLoaded) return;
-  cjFallbackLoaded = true;
+async function loadCjCatalog() {
+  if (cjLoadStarted) return;
+  cjLoadStarted = true;
   gridEl = getProductGrid();
   if (!gridEl) return;
 
   try {
     const data = await fetchAllCJProducts();
-    if (!allProducts.length) {
+    cjLoadDone = true;
+    if (data.products.length > 0) {
       renderProductGrid(data.products, activeFilter, sortValue);
+    } else if (!allProducts.length) {
+      gridEl.innerHTML = `<p class="cj-loading">${t("loading.noCatalog")}</p>`;
     }
   } catch (err) {
-    console.error(err);
+    console.error("CJ catalog load failed:", err);
+    cjLoadDone = true;
     if (!allProducts.length && gridEl) {
       gridEl.innerHTML = productsLoadErrorHtml(err);
     }
   }
 }
 
-function applyRealtimeProducts(products) {
-  renderProductGrid(products, activeFilter, sortValue);
-}
-
-function startFirestoreListener() {
-  unsubscribeFirestore = listenToProductsCollection({
-    onProducts: (products) => {
-      if (products.length > 0) {
-        applyRealtimeProducts(products);
-        return;
-      }
-      if (!cjFallbackLoaded) {
-        loadCjFallback();
-      } else {
-        applyRealtimeProducts([]);
-      }
-    },
-    onError: () => {
-      loadCjFallback();
-    },
-  });
+async function startFirestoreListener() {
+  try {
+    const { listenToProductsCollection } = await import("./firestore-products-live.js");
+    unsubscribeFirestore = listenToProductsCollection({
+      onProducts: (products) => {
+        if (products.length > 0) {
+          renderProductGrid(products, activeFilter, sortValue);
+        }
+        // Empty Firestore: keep CJ catalog — do not clear the grid
+      },
+      onError: (err) => {
+        console.warn("Firestore products listener failed:", err);
+        if (!cjLoadDone) loadCjCatalog();
+      },
+    });
+  } catch (err) {
+    console.warn("Firestore products unavailable:", err);
+  }
 }
 
 function getParamsFromUrl() {
@@ -222,7 +222,8 @@ async function initShopLive() {
   syncActiveFilter(activeFilter);
   updateHeading(activeFilter);
   bindShopControls();
-  loadCjFallback();
+
+  loadCjCatalog();
   startFirestoreListener();
 }
 
