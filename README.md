@@ -11,11 +11,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-**Store pages:** `/` · `/shop.html` · `/product.html` · `/profile.html` · `/login.html`  
-**Staff:** `/admin.html` (not linked on the public menu by default — use this URL)
-
-After deploying, hard-refresh the browser (or use a private window) so you do not see an old cached header.
-
 Set your CJ key in `.env`:
 
 ```
@@ -66,35 +61,13 @@ CORS for babyhug.se is already enabled in `server.js`.
 
 ---
 
-## Google sign-in works on localhost but not on babyhug.se
+## Firebase, profile & admin
 
-Firebase allows **localhost** by default. Your live domain must be added manually.
+- **Customers:** Google sign-in on [profile.html](profile.html); **wishlist + cart** sync to Firestore when logged in.
+- **Admin:** [admin.html](admin.html) uses **server login** (`ADMIN_USER` / `ADMIN_PASSWORD`). Product edits save to **Firestore** when `FIREBASE_SERVICE_ACCOUNT_JSON` is set, else `data/product-overrides.json`.
+- **`NODE_ENV=production`:** set in [render.yaml](render.yaml) on Render; read in `server.js` and `server/admin-auth.js`.
 
-### 1. Firebase — authorized domains
-
-1. [Firebase Console](https://console.firebase.google.com/) → project **babyhug-bb69a**
-2. **Authentication** → **Settings** → **Authorized domains**
-3. **Add domain** for each hostname you use:
-   - `babyhug.se`
-   - `www.babyhug.se` (if users can open `https://www.babyhug.se`)
-
-Wait a minute, then try sign-in again. A wrong or missing domain shows `auth/unauthorized-domain` in the browser console.
-
-### 2. Google Cloud — OAuth Web client
-
-1. [Google Cloud Console](https://console.cloud.google.com/) → same project as Firebase
-2. **APIs & Services** → **Credentials** → your **Web client** OAuth 2.0 client
-3. **Authorized JavaScript origins** — add:
-   - `https://babyhug.se`
-   - `https://www.babyhug.se`
-4. **Authorized redirect URIs** — must include Firebase’s handler:
-   - `https://babyhug-bb69a.firebaseapp.com/__/auth/handler`
-
-In Firebase: **Authentication** → **Sign-in method** → **Google** → enable, and paste the Web client ID + secret there if prompted (never put the secret in this repo).
-
-### 3. Production file
-
-`js/firebase-config.js` is gitignored but must exist on the server (Render: upload or generate at deploy). If it is missing, the login page shows a Firebase load error.
+**Full setup steps:** see [SETUP.md](SETUP.md).
 
 ---
 

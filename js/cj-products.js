@@ -6,35 +6,6 @@ import { isInWishlist, toggleWishlist } from "./wishlist.js";
 
 export { parseCjPrice } from "./currency.js";
 
-/** CJ list items use productId/sku — keep string ids (never Number; loses precision). */
-export function normalizeListProduct(product) {
-  if (!product) return product;
-  const productId =
-    product.productId != null
-      ? String(product.productId)
-      : product.pid != null
-        ? String(product.pid)
-        : "";
-  const sku =
-    product.productSku != null
-      ? String(product.productSku)
-      : product.sku != null
-        ? String(product.sku)
-        : "";
-  return {
-    ...product,
-    productId,
-    pid: productId,
-    sku,
-    productSku: sku,
-  };
-}
-
-export function productIds(product) {
-  const p = normalizeListProduct(product);
-  return { pid: p.pid, sku: p.sku };
-}
-
 export function escapeHtml(text) {
   return String(text ?? "")
     .replace(/&/g, "&amp;")
@@ -266,9 +237,10 @@ export function productToWishlistItem(product) {
 
 export function productPageUrl(product) {
   const params = new URLSearchParams();
-  const { pid, sku } = productIds(product);
-  if (pid) params.set("pid", pid);
-  if (sku) params.set("sku", sku);
+  const pid = product.pid ?? product.productId;
+  const sku = product.productSku ?? product.sku;
+  if (pid) params.set("pid", String(pid));
+  if (sku) params.set("sku", String(sku));
   const qs = params.toString();
   return qs ? `product.html?${qs}` : "product.html";
 }
@@ -378,9 +350,8 @@ export async function fetchCJProducts(pageSize = 68, pageNum = 1) {
     throw err;
   }
 
-  const products = (data?.data?.content ?? []).map(normalizeListProduct);
   return {
-    products,
+    products: data?.data?.content ?? [],
     total: data?.data?.totalRecords ?? 0,
     raw: data,
   };
@@ -402,7 +373,7 @@ export async function fetchAllCJProducts() {
         throw err;
       }
       const data = JSON.parse(raw);
-      const products = (data?.data?.content ?? []).map(normalizeListProduct);
+      const products = data?.data?.content ?? [];
       return { products, total: data?.data?.totalRecords ?? products.length };
     })();
   }

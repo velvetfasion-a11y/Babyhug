@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { buildStoreConfig } from "./server/geo-currency.js";
 import {
   applyOverridesToList,
+  initOverridesStore,
   invalidateOverridesCache,
 } from "./server/product-overrides.js";
 import { registerAdminRoutes } from "./server/admin-routes.js";
@@ -216,7 +217,7 @@ app.get("/api/products/all", async (req, res) => {
   if (!requireApiKey(res)) return;
 
   try {
-    const all = (await fetchAllCatalog()).map(normalizeCatalogItem);
+    const all = await fetchAllCatalog();
     const merged = applyOverridesToList(all);
     const payload = {
       code: 200,
@@ -246,66 +247,23 @@ registerAdminRoutes(app, {
 
 const detailCache = new Map();
 const DETAIL_CACHE_MS = 10 * 60 * 1000;
-const CJ_DETAIL_GAP_MS = 1100;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function normalizeCatalogItem(product) {
-  const productId =
-    product?.productId != null
-      ? String(product.productId)
-      : product?.pid != null
-        ? String(product.pid)
-        : "";
-  const sku =
-    product?.productSku != null
-      ? String(product.productSku)
-      : product?.sku != null
-        ? String(product.sku)
-        : "";
-  return { ...product, productId, pid: productId, sku, productSku: sku };
-}
-
-function findInCatalog(all, pid, productSku) {
-  const pidStr = pid ? String(pid) : "";
-  const skuStr = productSku ? String(productSku) : "";
-
-  return (
-    all.find((raw) => {
-      const p = normalizeCatalogItem(raw);
-      if (skuStr && (p.sku === skuStr || p.productSku === skuStr)) return true;
-      if (pidStr) {
-        const ids = [p.productId, p.pid, p.vid].filter(Boolean).map(String);
-        if (ids.includes(pidStr)) return true;
-      }
-      return false;
-    }) ?? null
-  );
-}
-
-function detailOk(detailData) {
-  return (
-    detailData?.data &&
-    (detailData.success === true ||
-      detailData.result === true ||
-      Number(detailData.code) === 200)
-  );
-}
 
 async function fetchCjProductDetail(token, pid, productSku) {
   const attempts = [];
   if (pid) attempts.push(new URLSearchParams({ pid: String(pid) }));
   if (productSku) attempts.push(new URLSearchParams({ productSku: String(productSku) }));
 
-  for (let i = 0; i < attempts.length; i++) {
-    if (i > 0) await sleep(CJ_DETAIL_GAP_MS);
-    const detailRes = await fetch(`${CJ_BASE}/product/query?${attempts[i]}`, {
+  for (const params of attempts) {
+    const detailRes = await fetch(`${CJ_BASE}/product/query?${params}`, {
       headers: { "CJ-Access-Token": token },
     });
     const detailData = await detailRes.json();
-    if (detailOk(detailData)) return detailData;
+    const ok =
+      detailData?.data &&
+      (detailData.success === true ||
+        detailData.result === true ||
+        Number(detailData.code) === 200);
+    if (ok) return detailData;
   }
   return null;
 }
@@ -332,41 +290,8 @@ app.get("/api/product", async (req, res) => {
       return res.json(hit.data);
     }
 
-    let detailData = await fetchCjProductDetail(token, pid, productSku);
-    let catalogHit = null;
-
-    if (!detailData) {
-      const all = await fetchAllCatalog();
-      catalogHit = findInCatalog(all, pid, productSku);
-
-      if (catalogHit) {
-        const resolved = normalizeCatalogItem(catalogHit);
-        const canonicalPid = resolved.productId || resolved.pid;
-        detailData = await fetchCjProductDetail(
-          token,
-          canonicalPid,
-          resolved.sku || productSku
-        );
-      }
-    }
-
+    const detailData = await fetchCjProductDetail(token, pid, productSku);
     res.setHeader("Cache-Control", "public, max-age=120");
-
-    if (!detailData && catalogHit) {
-      const merged = applyOverridesToList([normalizeCatalogItem(catalogHit)])[0];
-      const payload = {
-        code: 200,
-        success: true,
-        message: "Success",
-        data: merged,
-        catalogFallback: true,
-      };
-      detailCache.set(detailCacheKey, {
-        data: payload,
-        expires: Date.now() + DETAIL_CACHE_MS,
-      });
-      return res.json(payload);
-    }
 
     if (!detailData) {
       return res.status(404).json({
@@ -411,7 +336,6 @@ const HTML_PAGES = [
   "shop.html",
   "product.html",
   "profile.html",
-  "login.html",
   "admin.html",
 ];
 
@@ -431,9 +355,9 @@ app.use(
     etag: true,
     setHeaders(res, filePath) {
       if (filePath.endsWith(".html")) {
-        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Cache-Control", isProd ? "public, max-age=3600" : "no-cache");
       } else if (/\.(js|css)$/.test(filePath)) {
-        res.setHeader("Cache-Control", isProd ? "public, max-age=86400" : "no-cache");
+        res.setHeader("Cache-Control", isProd ? "public, max-age=604800" : "no-cache");
       }
     },
   })
@@ -448,6 +372,8 @@ app.use((req, res) => {
 });
 
 // ── Start server ──────────────────────────────────────────────────
+
+await initOverridesStore();
 
 const server = app.listen(PORT, HOST, () => {
   console.log(`Baby Hug server listening on ${HOST}:${PORT}`);

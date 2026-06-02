@@ -2,11 +2,14 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { inferAdminCategory } from "./product-category.js";
+import { getAdminFirestore, isFirebaseAdminEnabled } from "./firebase-admin.js";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OVERRIDES_PATH =
   process.env.PRODUCT_OVERRIDES_PATH ||
   path.join(ROOT, "data", "product-overrides.json");
+
+const OVERRIDES_DOC_PATH = "admin/productOverrides";
 
 export const ADMIN_CATEGORIES = [
   "Boy",
@@ -44,6 +47,83 @@ function readFile() {
   }
 }
 
+function writeFileOnly(data) {
+  const dir = path.dirname(OVERRIDES_PATH);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(OVERRIDES_PATH, JSON.stringify(data, null, 2), "utf8");
+}
+
+async function loadFromFirestore() {
+  const db = getAdminFirestore();
+  if (!db) return null;
+
+  const snap = await db.doc(OVERRIDES_DOC_PATH).get();
+  if (!snap.exists) return defaultData();
+
+  const data = snap.data();
+  if (!data?.products || typeof data.products !== "object") {
+    return defaultData();
+  }
+  return { products: data.products };
+}
+
+async function saveToFirestore(data) {
+  const db = getAdminFirestore();
+  if (!db) return false;
+  await db.doc(OVERRIDES_DOC_PATH).set(
+    { products: data.products, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
+  return true;
+}
+
+/** Load overrides from Firestore (if configured) or local JSON. Call once at server start. */
+export async function initOverridesStore() {
+  if (isFirebaseAdminEnabled()) {
+    try {
+      const fromCloud = await loadFromFirestore();
+      const fileData = readFile();
+      const cloudCount = Object.keys(fromCloud?.products ?? {}).length;
+      const fileCount = Object.keys(fileData.products ?? {}).length;
+
+      if (cloudCount > 0) {
+        cache = fromCloud;
+        writeFileOnly(fromCloud);
+        console.log(
+          `[Overrides] Loaded ${cloudCount} product override(s) from Firestore`
+        );
+        return;
+      }
+
+      if (fileCount > 0) {
+        cache = fileData;
+        await saveToFirestore(fileData);
+        console.log(
+          `[Overrides] Seeded Firestore from file (${fileCount} product(s))`
+        );
+        return;
+      }
+
+      cache = defaultData();
+      console.log("[Overrides] Firestore connected (empty catalog overrides)");
+      return;
+    } catch (err) {
+      console.warn("[Overrides] Firestore load failed, using file:", err.message);
+    }
+  }
+
+  cache = readFile();
+  console.log(
+    `[Overrides] Using local file (${Object.keys(cache.products ?? {}).length} product(s))`
+  );
+}
+
+export function getOverridesStorageMode() {
+  return isFirebaseAdminEnabled() && getAdminFirestore()
+    ? "firestore"
+    : "file";
+}
+
 export function loadOverrides() {
   if (!cache) cache = readFile();
   return cache;
@@ -54,10 +134,15 @@ export function invalidateOverridesCache() {
 }
 
 export function saveOverrides(data) {
-  const dir = path.dirname(OVERRIDES_PATH);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(OVERRIDES_PATH, JSON.stringify(data, null, 2), "utf8");
+  writeFileOnly(data);
   cache = data;
+
+  if (isFirebaseAdminEnabled()) {
+    saveToFirestore(data).catch((err) => {
+      console.warn("[Overrides] Firestore save failed:", err.message);
+    });
+  }
+
   return data;
 }
 

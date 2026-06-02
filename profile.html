@@ -12,19 +12,8 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Epilogue:wght@400;500&family=Libre+Baskerville:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css?v=20260602c" />
-    <link rel="stylesheet" href="css/profile.css?v=20260602f" />
-    <script type="importmap">
-      {
-        "imports": {
-          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
-          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
-          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
-          "firebase/storage": "https://esm.sh/firebase@12.14.0/storage",
-          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
-        }
-      }
-    </script>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/profile.css" />
   </head>
   <body class="page-profile" data-page="profile">
     <div class="promo-bar" aria-hidden="true">
@@ -58,8 +47,8 @@
         </div>
 
         <nav class="nav-right" aria-label="Account">
-          <a href="login.html?next=profile.html" class="profile-btn" id="nav-profile-btn" aria-label="Sign in" title="Sign in">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <a href="profile.html" class="profile-btn is-active" aria-label="Your profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <circle cx="12" cy="8" r="4" />
               <path d="M5 20c0-4 3.5-6 7-6s7 2 7 6" />
             </svg>
@@ -84,20 +73,30 @@
       <a href="shop.html?category=Toys">Childrens toys</a>
       <a href="shop.html?badge=Sale">Sale</a>
       <a href="index.html#about">About</a>
-      <a href="profile.html" id="nav-profile-mobile">Your profile</a>
-      <a href="admin.html">Admin</a>
+      <a href="profile.html">Your profile</a>
     </nav>
 
     <div class="profile-wrap">
       <main class="profile-main">
+        <div id="profile-auth-banner" class="profile-auth-banner">
+          <p id="profile-auth-hint"></p>
+          <button type="button" id="profile-google-btn" class="profile-google-btn">
+            <span class="profile-google-icon" aria-hidden="true">G</span>
+            <span id="profile-google-label">Sign in with Google</span>
+          </button>
+        </div>
+
         <div class="profile-row">
           <div id="profile-avatar" class="profile-avatar" aria-hidden="true">?</div>
-          <div class="profile-meta">
-            <div id="profile-name" class="profile-name">Loading…</div>
+          <div class="profile-identity">
+            <div id="profile-name" class="profile-name">Guest</div>
             <div id="profile-email" class="profile-email"></div>
-            <button type="button" id="profile-signout-btn" class="profile-logout-link">Log out</button>
+            <p id="profile-signed-in-as" class="profile-signed-in-as" hidden></p>
           </div>
-          <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
+          <div class="profile-row-actions">
+            <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
+            <button type="button" id="profile-signout-btn" class="profile-signout-btn" hidden>Sign out</button>
+          </div>
         </div>
 
         <h2 id="profile-wishlist-title" class="profile-section-title">Wishlist</h2>
@@ -132,6 +131,6 @@
       </div>
     </footer>
 
-    <script type="module" src="js/profile.js?v=20260602g"></script>
+    <script type="module" src="js/profile.js"></script>
   </body>
 </html>

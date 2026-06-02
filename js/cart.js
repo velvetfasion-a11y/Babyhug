@@ -1,8 +1,9 @@
+import { getCurrentUser } from "./auth.js";
 import { getProductBySlug, wixImage } from "./products.js";
 import { parseImageUrl, productName } from "./cj-products.js";
 import { formatStoreAmount } from "./currency.js";
 import { t } from "./i18n.js";
-import { whenAuthReady, saveCartLineToFirestore } from "./user-firestore.js";
+import { cartLineId, saveCartToCloud } from "./user-store.js";
 
 const STORAGE_KEY = "babyhug-cart";
 
@@ -17,15 +18,18 @@ function readCart() {
 
 function writeCart(items) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  window.dispatchEvent(new CustomEvent("babyhug-cart-updated"));
+
+  const user = getCurrentUser();
+  if (user?.uid) {
+    saveCartToCloud(user.uid, items).catch((err) => {
+      console.warn("Cart cloud sync failed:", err);
+    });
+  }
 }
 
 function lineId(line) {
-  return (
-    line.id ??
-    (line.vid ? `cj-vid-${line.vid}` : null) ??
-    line.slug ??
-    (line.pid ? `cj-${line.pid}` : `cj-${line.sku}`)
-  );
+  return cartLineId(line);
 }
 
 function itemCount(items) {
@@ -45,10 +49,7 @@ function resolveLine(line) {
       pid: line.pid,
       sku: line.sku,
       vid: line.vid,
-      variantId: line.variantId ?? line.vid,
       variantSku: line.variantSku,
-      selectedOptions: line.selectedOptions ?? {},
-      options: line.options ?? [],
     };
   }
 
@@ -96,10 +97,7 @@ export function addToCartItem(item, qty = 1) {
     pid: item.pid,
     sku: item.sku,
     vid: item.vid,
-    variantId: item.variantId ?? item.vid,
     variantSku: item.variantSku,
-    selectedOptions: item.selectedOptions ?? {},
-    options: item.options ?? [],
   };
 
   const items = readCart();
@@ -112,13 +110,6 @@ export function addToCartItem(item, qty = 1) {
   }
   writeCart(items);
   renderCart();
-
-  whenAuthReady().then(() => {
-    saveCartLineToFirestore(line).catch((err) =>
-      console.warn("Firestore cart sync skipped:", err)
-    );
-  });
-
   return items;
 }
 

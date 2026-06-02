@@ -4,13 +4,9 @@ import {
   formatPrice,
 } from "./products.js";
 import {
-  fetchAllCJProducts,
   formatProductPrice,
-  normalizeListProduct,
   parseImageUrl,
-  productIds,
   productName,
-  productPageUrl,
 } from "./cj-products.js";
 import {
   storePriceNumber,
@@ -18,18 +14,8 @@ import {
   formatStoreAmount,
 } from "./currency.js";
 import { fetchJson } from "./fetch-json.js";
-import { t, applyProductStaticTranslations } from "./i18n.js";
+import { t, localizeOptionLabel, applyProductStaticTranslations } from "./i18n.js";
 import { bootstrap } from "./bootstrap.js";
-import {
-  buildOptionGroups,
-  defaultSelections,
-  findVariant,
-  optionsArrayFromSelections,
-  selectionLabel,
-  shouldShowVariantUi,
-} from "./product-variants.js";
-import { isInWishlist, toggleWishlist } from "./wishlist.js";
-import { whenAuthReady, saveWishlistItemToFirestore } from "./user-firestore.js";
 
 let cartApi = null;
 async function getCartApi() {
@@ -37,10 +23,14 @@ async function getCartApi() {
   return cartApi;
 }
 
-/** @type {import('./product-variants.js').CjVariant | null} */
+/** @typedef {{ name: string, values: string[] }} ProductOptionGroup */
+/** @typedef {{ vid: string, variantSku?: string, variantKey?: string, variantSellPrice?: number, variantImage?: string, variantNameEn?: string }} CjVariant */
+
+/** @type {CjVariant | null} */
 let selectedVariant = null;
 /** @type {Record<string, string>} */
 let selectedOptions = {};
+
 function initMobileNav() {
   const toggle = document.querySelector(".menu-toggle");
   const nav = document.getElementById("mobile-nav");
@@ -97,6 +87,120 @@ function initAccordions() {
       setOpen(!accordion.classList.contains("is-open"));
     });
   });
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim().startsWith("[")) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function splitVariantKey(key) {
+  if (key == null || key === "") return [];
+  const fromJson = parseJsonArray(key);
+  if (fromJson?.length) return fromJson.map(String);
+  return String(key)
+    .split("-")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** @returns {string[]} */
+function getOptionNames(product) {
+  const variants = product.variants ?? [];
+  const maxParts = Math.max(
+    0,
+    ...variants.map((v) => splitVariantKey(v.variantKey ?? v.variantKeyEn).length)
+  );
+
+  let names = null;
+
+  const fromEnSet = parseJsonArray(product.productKeyEn);
+  if (fromEnSet?.length) {
+    names = fromEnSet.map(String);
+  }
+
+  const en = product.productKeyEn;
+  if (!names?.length && typeof en === "string" && en.includes("-") && !en.startsWith("[")) {
+    names = en
+      .split("-")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (!names?.length && typeof en === "string" && en.trim() && !en.startsWith("[")) {
+    names = [en.trim()];
+  }
+
+  if (!names?.length) {
+    const fromSet = parseJsonArray(product.productKeySet);
+    if (fromSet?.length) names = fromSet.map(String);
+  }
+
+  if (!names?.length && variants.length) {
+    const keyEn = parseJsonArray(variants[0].variantKeyEn);
+    if (keyEn?.length) names = keyEn.map(String);
+  }
+
+  if (!names?.length) {
+    const sampleLen = splitVariantKey(variants[0]?.variantKey ?? variants[0]?.variantKeyEn).length;
+    const count = Math.max(sampleLen, maxParts);
+    names = Array.from({ length: count }, (_, i) =>
+      t("product.option", { n: i + 1 })
+    );
+  }
+
+  return padOptionNames(names.map(localizeOptionLabel), maxParts);
+}
+
+function padOptionNames(names, targetLength) {
+  if (!targetLength || names.length >= targetLength) return names;
+  const out = [...names];
+  while (out.length < targetLength) {
+    out.push(`Option ${out.length + 1}`);
+  }
+  return out;
+}
+
+/** @returns {ProductOptionGroup[]} */
+function buildOptionGroups(product) {
+  const variants = product.variants ?? [];
+  const optionNames = getOptionNames(product);
+  if (!variants.length || !optionNames.length) return [];
+
+  const valueSets = optionNames.map(() => new Set());
+
+  for (const variant of variants) {
+    const parts = splitVariantKey(variant.variantKey ?? variant.variantKeyEn);
+    parts.forEach((val, i) => {
+      if (i < valueSets.length) valueSets[i].add(val);
+    });
+  }
+
+  return optionNames.map((name, i) => ({
+    name,
+    values: [...valueSets[i]],
+  }));
+}
+
+/** @param {Record<string, string>} selections */
+function findVariant(product, selections) {
+  const variants = product.variants ?? [];
+  const optionNames = getOptionNames(product);
+  if (!variants.length) return null;
+
+  if (!optionNames.length) return variants[0] ?? null;
+
+  return (
+    variants.find((variant) => {
+      const parts = splitVariantKey(variant.variantKey ?? variant.variantKeyEn);
+      return optionNames.every((name, i) => selections[name] === parts[i]);
+    }) ?? null
+  );
 }
 
 function variantDisplayPrice(variant, product) {
@@ -158,10 +262,10 @@ function updateMainImage(product, variant) {
   const name = product.name ?? productName(product);
   let src = "";
 
-  if (variant?.variantImage) {
-    src = variant.variantImage;
-  } else if (product.image) {
+  if (product.image) {
     src = wixImage(product.image, 900, 1100);
+  } else if (variant?.variantImage) {
+    src = variant.variantImage;
   } else {
     const images = parseCjImages(product);
     src = images[0] ?? "";
@@ -171,9 +275,7 @@ function updateMainImage(product, variant) {
     mainImg.src = src;
     mainImg.alt = variant?.variantNameEn
       ? `${name} — ${variant.variantNameEn}`
-      : selectionLabel(selectedOptions)
-        ? `${name} — ${selectionLabel(selectedOptions)}`
-        : name;
+      : name;
   }
 }
 
@@ -182,31 +284,14 @@ function syncVariantSelection(product) {
   updatePriceDisplay(product, selectedVariant);
   updateSkuDisplay(product, selectedVariant);
   updateMainImage(product, selectedVariant);
-  updateWishlistButton(product);
 
   const addBtn = document.getElementById("add-to-cart");
-  const wishBtn = document.getElementById("add-to-wishlist");
-  const hasVariants = (product.variants?.length ?? 0) > 0;
-  const needsPick = hasVariants && shouldShowVariantUi(product);
-  const ready = !needsPick || Boolean(selectedVariant?.vid);
-
   if (addBtn) {
+    const hasVariants = (product.variants?.length ?? 0) > 0;
+    const ready = !hasVariants || Boolean(selectedVariant?.vid);
     addBtn.disabled = !ready;
     addBtn.textContent = ready ? t("product.addToCart") : t("product.selectOptions");
   }
-  if (wishBtn) wishBtn.disabled = !ready;
-}
-
-function escapeHtml(text) {
-  return String(text ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function escapeAttr(text) {
-  return escapeHtml(text).replace(/'/g, "&#39;");
 }
 
 function renderVariantSelectors(product) {
@@ -214,13 +299,16 @@ function renderVariantSelectors(product) {
   if (!container) return;
 
   const groups = buildOptionGroups(product);
+  const variants = product.variants ?? [];
 
-  if (!shouldShowVariantUi(product)) {
+  if (groups.length <= 1 && groups[0]?.values.length <= 1 && variants.length <= 1) {
     container.hidden = true;
     container.innerHTML = "";
-    const defaults = defaultSelections(product);
-    selectedOptions = defaults.selectedOptions;
-    selectedVariant = defaults.selectedVariant;
+    selectedVariant = variants[0] ?? null;
+    selectedOptions = {};
+    if (groups[0]?.values[0] && groups[0].name) {
+      selectedOptions[groups[0].name] = groups[0].values[0];
+    }
     syncVariantSelection(product);
     return;
   }
@@ -230,39 +318,16 @@ function renderVariantSelectors(product) {
 
   container.innerHTML = groups
     .map((group) => {
-      const fieldId = `option-${productId}-${group.name.replace(/\s+/g, "-")}`;
-      const useSelect = group.values.length > 5;
-
-      if (useSelect) {
-        const options = group.values
-          .map((value) => {
-            const selected = selectedOptions[group.name] === value;
-            return `<option value="${escapeAttr(value)}"${selected ? " selected" : ""}>${escapeHtml(value)}</option>`;
-          })
-          .join("");
-
-        return `
-          <div class="product-option-group" data-option="${escapeAttr(group.name)}">
-            <label class="product-option-label" for="${fieldId}">${escapeHtml(group.name)}</label>
-            <select
-              id="${fieldId}"
-              class="product-option-select"
-              data-option-name="${escapeAttr(group.name)}"
-              aria-label="${escapeAttr(group.name)}"
-            >${options}</select>
-          </div>
-        `;
-      }
-
+      const fieldsetId = `option-${productId}-${group.name.replace(/\s+/g, "-")}`;
       const radios = group.values
         .map((value) => {
-          const inputId = `${fieldId}-${value.replace(/\s+/g, "-")}`;
+          const inputId = `${fieldsetId}-${value.replace(/\s+/g, "-")}`;
           const checked = selectedOptions[group.name] === value;
           return `
             <label class="product-option-value">
               <input
                 type="radio"
-                name="${fieldId}"
+                name="${fieldsetId}"
                 id="${inputId}"
                 value="${escapeAttr(value)}"
                 data-option-name="${escapeAttr(group.name)}"
@@ -285,17 +350,11 @@ function renderVariantSelectors(product) {
     })
     .join("");
 
-  container.querySelectorAll(".product-option-select").forEach((select) => {
-    select.addEventListener("change", () => {
-      selectedOptions[select.dataset.optionName] = select.value;
-      syncVariantSelection(product);
-    });
-  });
-
   container.querySelectorAll('input[type="radio"]').forEach((input) => {
     input.addEventListener("change", () => {
       if (!input.checked) return;
-      selectedOptions[input.dataset.optionName] = input.value;
+      const optionName = input.dataset.optionName;
+      selectedOptions[optionName] = input.value;
       syncVariantSelection(product);
     });
   });
@@ -303,129 +362,16 @@ function renderVariantSelectors(product) {
   syncVariantSelection(product);
 }
 
-function buildLinePayload(product) {
-  const variant = selectedVariant;
-  const pid = product.pid ?? product.productId;
-  const vid = variant?.vid;
-  const variantSku = variant?.variantSku ?? product.productSku ?? product.sku ?? "";
-  const options = optionsArrayFromSelections(selectedOptions);
-
-  const id = vid
-    ? `cj-vid-${vid}`
-    : pid
-      ? `cj-${pid}`
-      : variantSku
-        ? `cj-${variantSku}`
-        : `cj-${Date.now()}`;
-
-  const price = variantDisplayPrice(variant ?? null, product);
-  const baseName = product.name ?? productName(product);
-  const variantLabel = selectionLabel(selectedOptions);
-  const name = variantLabel ? `${baseName} — ${variantLabel}` : baseName;
-
-  const image = variant?.variantImage
-    ? variant.variantImage
-    : product.image
-      ? wixImage(product.image, 160, 160)
-      : parseImageUrl(product);
-
-  return {
-    id,
-    vid: vid ? String(vid) : undefined,
-    variantId: vid ? String(vid) : undefined,
-    variantSku: variantSku || undefined,
-    pid: pid ? String(pid) : undefined,
-    sku: variantSku || undefined,
-    name,
-    image,
-    price,
-    href: productPageUrl(product),
-    category: product.adminCategories?.[0] ?? product.adminCategory ?? "",
-    selectedOptions: { ...selectedOptions },
-    options,
-  };
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-function buildCartItem(product) {
-  if (product.slug && getProductBySlug(product.slug)) {
-    const p = getProductBySlug(product.slug);
-    return {
-      id: product.slug,
-      slug: product.slug,
-      name: p.name,
-      image: wixImage(p.image, 160, 160),
-      price: Number(p.price) * (getStoreConfig().rate ?? 1),
-      selectedOptions: { ...selectedOptions },
-      options: optionsArrayFromSelections(selectedOptions),
-    };
-  }
-
-  return buildLinePayload(product);
-}
-
-function buildWishlistItem(product) {
-  return buildLinePayload(product);
-}
-
-function updateWishlistButton(product) {
-  const btn = document.getElementById("add-to-wishlist");
-  if (!btn) return;
-  const item = buildWishlistItem(product);
-  const saved = isInWishlist(item);
-  btn.classList.toggle("is-saved", saved);
-  btn.setAttribute("aria-pressed", String(saved));
-  const label = btn.querySelector(".btn-wishlist-label");
-  if (label) {
-    label.textContent = saved ? t("profile.removeWish") : t("profile.saveWishlist");
-  }
-}
-
-function initAddToCart(product) {
-  const btn = document.getElementById("add-to-cart");
-  if (!btn) return;
-
-  const handler = async () => {
-    if (btn.disabled) return;
-
-    const qty = document.getElementById("product-qty")?.value || "1";
-    const item = buildCartItem(product);
-    const cart = await getCartApi();
-
-    if (item.slug && getProductBySlug(item.slug)) {
-      cart.addToCart(item.slug, qty);
-    } else {
-      cart.addToCartItem({ ...item, qty: Number(qty) || 1 }, qty);
-    }
-
-    cart.openCartDrawer();
-  };
-
-  btn.replaceWith(btn.cloneNode(true));
-  document.getElementById("add-to-cart")?.addEventListener("click", handler);
-}
-
-function initAddToWishlist(product) {
-  const btn = document.getElementById("add-to-wishlist");
-  if (!btn) return;
-
-  const handler = async () => {
-    if (btn.disabled) return;
-    const item = buildWishlistItem(product);
-    toggleWishlist(item);
-    updateWishlistButton(product);
-
-    await whenAuthReady();
-    if (isInWishlist(item)) {
-      await saveWishlistItemToFirestore(item);
-    } else {
-      const { removeWishlistItemFromFirestore } = await import("./user-firestore.js");
-      await removeWishlistItemFromFirestore(item.id);
-    }
-  };
-
-  btn.replaceWith(btn.cloneNode(true));
-  document.getElementById("add-to-wishlist")?.addEventListener("click", handler);
-  updateWishlistButton(product);
+function escapeAttr(text) {
+  return escapeHtml(text).replace(/'/g, "&#39;");
 }
 
 function initGallery(product) {
@@ -448,6 +394,81 @@ function initGallery(product) {
       mainImg.alt = `${name} — view ${i + 1}`;
     });
   });
+}
+
+function buildCartItem(product) {
+  if (product.slug && getProductBySlug(product.slug)) {
+    const p = getProductBySlug(product.slug);
+    return {
+      id: product.slug,
+      slug: product.slug,
+      name: p.name,
+      image: wixImage(p.image, 160, 160),
+      price: Number(p.price) * (getStoreConfig().rate ?? 1),
+    };
+  }
+
+  const variant = selectedVariant;
+  const pid = product.pid ?? product.productId;
+  const vid = variant?.vid;
+  const variantSku = variant?.variantSku ?? product.productSku ?? product.sku ?? "";
+
+  const id = vid
+    ? `cj-vid-${vid}`
+    : pid
+      ? `cj-${pid}`
+      : variantSku
+        ? `cj-${variantSku}`
+        : `cj-${Date.now()}`;
+
+  const price = variantDisplayPrice(variant ?? null, product);
+
+  const baseName = product.name ?? productName(product);
+  const name = variant?.variantNameEn
+    ? `${baseName} — ${variant.variantNameEn}`
+    : variant?.variantKey
+      ? `${baseName} — ${variant.variantKey}`
+      : baseName;
+
+  const image = variant?.variantImage
+    ? variant.variantImage
+    : product.image
+      ? wixImage(product.image, 160, 160)
+      : parseImageUrl(product);
+
+  return {
+    id,
+    vid: vid ? String(vid) : undefined,
+    variantSku: variantSku || undefined,
+    pid: pid ? String(pid) : undefined,
+    sku: variantSku || undefined,
+    name,
+    image,
+    price,
+  };
+}
+
+function initAddToCart(product) {
+  const btn = document.getElementById("add-to-cart");
+  if (!btn) return;
+
+  const handler = async () => {
+    if (btn.disabled) return;
+
+    const qty = document.getElementById("product-qty")?.value || "1";
+    const item = buildCartItem(product);
+    const cart = await getCartApi();
+
+    if (item.slug && getProductBySlug(item.slug)) {
+      cart.addToCart(item.slug, qty);
+    } else {
+      cart.addToCartItem(item, qty);
+    }
+    cart.openCartDrawer();
+  };
+
+  btn.replaceWith(btn.cloneNode(true));
+  document.getElementById("add-to-cart")?.addEventListener("click", handler);
 }
 
 function parseCjImages(product) {
@@ -475,16 +496,6 @@ function parseCjImages(product) {
 function normalizeCjProduct(raw) {
   if (!raw) return raw;
   const name = productName(raw);
-  let variants = raw.variants ?? raw.variantList ?? [];
-  if (typeof variants === "string") {
-    try {
-      variants = JSON.parse(variants);
-    } catch {
-      variants = [];
-    }
-  }
-  if (!Array.isArray(variants)) variants = [];
-
   return {
     ...raw,
     pid: raw.pid ?? raw.productId,
@@ -495,22 +506,8 @@ function normalizeCjProduct(raw) {
     productNameEn: name,
     sellPrice: raw.sellPrice,
     bigImage: raw.bigImage || parseImageUrl(raw),
-    variants,
+    variants: raw.variants ?? [],
   };
-}
-
-async function fetchFirestoreProduct(pid) {
-  if (!pid) return null;
-  try {
-    const { doc, getDoc } = await import("firebase/firestore");
-    const { db } = await import("./firebase-config.js");
-    const snap = await getDoc(doc(db, "products", String(pid)));
-    if (!snap.exists()) return null;
-    return normalizeCjProduct({ ...snap.data(), pid: snap.id, productId: snap.id });
-  } catch (err) {
-    console.warn("Firestore product skipped:", err);
-    return null;
-  }
 }
 
 function showProductLoading() {
@@ -525,6 +522,17 @@ function showProductLoading() {
 
 function hideProductLoading() {
   document.querySelector(".product-page")?.classList.remove("product-page--loading");
+}
+
+function initDefaultSelections(product) {
+  const groups = buildOptionGroups(product);
+  selectedOptions = {};
+
+  for (const group of groups) {
+    if (group.values[0]) selectedOptions[group.name] = group.values[0];
+  }
+
+  selectedVariant = findVariant(product, selectedOptions) ?? product.variants?.[0] ?? null;
 }
 
 function renderProduct(product) {
@@ -587,9 +595,7 @@ function renderProduct(product) {
   });
 
   try {
-    const defaults = defaultSelections(product);
-    selectedOptions = defaults.selectedOptions;
-    selectedVariant = defaults.selectedVariant;
+    initDefaultSelections(product);
     renderVariantSelectors(product);
   } catch (err) {
     console.error("Variant UI error:", err);
@@ -600,6 +606,8 @@ function renderProduct(product) {
       options.innerHTML = "";
     }
   }
+  updateSkuDisplay(product, selectedVariant);
+  updatePriceDisplay(product, selectedVariant);
 
   const shareUrl = encodeURIComponent(window.location.href);
   const shareText = encodeURIComponent(name);
@@ -635,84 +643,48 @@ function showNotFound(message = "") {
   document.title = "Product | Baby Hug";
 }
 
-async function findProductInClientCatalog(pid, sku) {
-  try {
-    const { products } = await fetchAllCJProducts();
-    const pidStr = pid ? String(pid) : "";
-    const skuStr = sku ? String(sku) : "";
-    const hit = products.find((p) => {
-      const { pid: id, sku: s } = productIds(p);
-      if (skuStr && s === skuStr) return true;
-      if (pidStr && id === pidStr) return true;
-      return false;
-    });
-    return hit ? normalizeListProduct(hit) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchProductFromApi(pid, sku) {
-  const attempts = [];
-  if (pid && sku) attempts.push(new URLSearchParams({ pid: String(pid), sku: String(sku) }));
-  if (sku) attempts.push(new URLSearchParams({ sku: String(sku) }));
-  if (pid) attempts.push(new URLSearchParams({ pid: String(pid) }));
-
-  for (const params of attempts) {
-    const { res, data } = await fetchJson(`/api/product?${params}`, {}, 20000);
-    const ok =
-      res.ok &&
-      (data?.success === true || data?.result === true || Number(data?.code) === 200) &&
-      data?.data;
-    if (ok) return { product: normalizeCjProduct(data.data), catalogFallback: data.catalogFallback };
-  }
-  return null;
-}
-
 async function loadCjProduct(pid, sku) {
-  const pidStr = pid ? String(pid) : "";
-  const skuStr = sku ? String(sku) : "";
+  const params = new URLSearchParams();
+  if (pid) params.set("pid", pid);
+  if (sku) params.set("sku", sku);
 
-  if (!pidStr && !skuStr) {
+  if (!params.toString()) {
     showNotFound("Missing product id in the link.");
     return;
   }
 
   try {
-    let product = pidStr ? await fetchFirestoreProduct(pidStr) : null;
+    const { res, data } = await fetchJson(`/api/product?${params}`, {}, 20000);
 
-    if (!product) {
-      let result = await fetchProductFromApi(pidStr, skuStr);
-
-      if (!result) {
-        const catalogHit = await findProductInClientCatalog(pidStr, skuStr);
-        if (catalogHit) {
-          const { pid: canonicalPid, sku: canonicalSku } = productIds(catalogHit);
-          result = await fetchProductFromApi(canonicalPid, canonicalSku);
-          if (!result) product = normalizeCjProduct(catalogHit);
-        }
-      }
-
-      if (result?.product) product = result.product;
-
-      if (!product) {
-        showNotFound(
-          "This product is no longer available. It may have been removed from our catalog."
-        );
-        return;
-      }
-
-      if (result?.catalogFallback && !product.variants?.length) {
-        console.info("Showing catalog summary (full detail unavailable).");
-      }
+    if (!res.ok) {
+      console.error(`/api/product returned ${res.status}:`, data);
+      showNotFound(
+        `Could not load product (${res.status}). Run: lsof -ti:3000 | xargs kill, then npm run dev`
+      );
+      return;
     }
 
-    renderProduct(product);
-    initQuantity();
-    initAccordions();
-    initGallery(product);
-    initAddToCart(product);
-    initAddToWishlist(product);
+    const product = normalizeCjProduct(data?.data);
+
+    const ok =
+      data?.success === true || data?.result === true || Number(data?.code) === 200;
+
+    if (!ok || !product) {
+      console.error("CJ product detail failed:", data);
+      showNotFound(data?.message || data?.error || "This item is not available.");
+      return;
+    }
+
+    try {
+      renderProduct(product);
+      initQuantity();
+      initAccordions();
+      initGallery(product);
+      initAddToCart(product);
+    } catch (renderErr) {
+      console.error("Render error:", renderErr);
+      showNotFound(renderErr?.message || "Could not display this product.");
+    }
   } catch (err) {
     console.error("Product load error:", err);
     showNotFound(err?.message || "Could not load this product. Please try again.");
@@ -726,7 +698,6 @@ async function bootProductPage() {
   const slug = params.get("id");
 
   initMobileNav();
-  await whenAuthReady();
 
   if (pid || sku) {
     showProductLoading();
@@ -764,7 +735,6 @@ async function bootProductPage() {
   initAccordions();
   initGallery(product);
   initAddToCart(product);
-  initAddToWishlist(product);
 }
 
 function startProductPage() {

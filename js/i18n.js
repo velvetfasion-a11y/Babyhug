@@ -143,6 +143,16 @@ const STRINGS = {
     "profile.promptEmail": "Your email",
     "profile.qty": "Qty {n}",
     "profile.saveWishlist": "Save to wishlist",
+    "profile.signInGoogle": "Sign in with Google",
+    "profile.signOut": "Sign out",
+    "profile.authHint":
+      "Sign in with Google to sync your wishlist and cart across devices.",
+    "profile.authNotConfigured":
+      "Cloud sign-in is not configured yet. Copy js/firebase-config.example.js to js/firebase-config.js.",
+    "profile.signedInWithGoogle": "Signed in with Google",
+    "profile.signedIn": "Welcome back!",
+    "profile.signedOut": "Signed out",
+    "profile.signInFailed": "Could not sign in. Try again.",
   },
   sv: {
     "nav.shopAll": "Handla allt",
@@ -280,6 +290,16 @@ const STRINGS = {
     "profile.promptEmail": "Din e-post",
     "profile.qty": "Antal {n}",
     "profile.saveWishlist": "Spara i önskelistan",
+    "profile.signInGoogle": "Logga in med Google",
+    "profile.signOut": "Logga ut",
+    "profile.authHint":
+      "Logga in med Google för att synka önskelista och varukorg mellan enheter.",
+    "profile.authNotConfigured":
+      "Molnbaserad inloggning är inte konfigurerad. Kopiera js/firebase-config.example.js till js/firebase-config.js.",
+    "profile.signedInWithGoogle": "Inloggad med Google",
+    "profile.signedIn": "Välkommen tillbaka!",
+    "profile.signedOut": "Utloggad",
+    "profile.signInFailed": "Kunde inte logga in. Försök igen.",
   },
 };
 
@@ -420,8 +440,12 @@ function applyProfileTranslations() {
   setText(document.getElementById("profile-recs-title"), "profile.recsTitle");
   setText(document.getElementById("profile-recs-sub"), "profile.recsSub");
   setText(document.getElementById("profile-cart-title"), "profile.cart");
+  setText(document.getElementById("profile-auth-hint"), "profile.authHint");
+  setText(document.getElementById("profile-google-label"), "profile.signInGoogle");
   const editBtn = document.getElementById("profile-edit-btn");
   if (editBtn) editBtn.textContent = t("profile.edit");
+  const signOut = document.getElementById("profile-signout-btn");
+  if (signOut) signOut.textContent = t("profile.signOut");
   const checkout = document.getElementById("profile-checkout-btn");
   if (checkout) checkout.textContent = t("cart.checkout");
 }
@@ -532,7 +556,7 @@ function applyShopTranslations() {
   const filters = document.querySelector(".shop-filters");
   if (filters) filters.setAttribute("aria-label", t("shop.filterBy"));
 
-  const grid = document.getElementById("product-grid") || document.getElementById("shop-grid");
+  const grid = document.getElementById("shop-grid");
   if (grid) grid.setAttribute("aria-label", t("shop.products"));
 
   const sortLabel = document.querySelector(".sort-label");
@@ -562,13 +586,6 @@ export function applyProductStaticTranslations() {
 
   const addBtn = document.getElementById("add-to-cart");
   if (addBtn && !addBtn.disabled) addBtn.textContent = t("product.addToCart");
-
-  const wishBtn = document.getElementById("add-to-wishlist");
-  const wishLabel = wishBtn?.querySelector(".btn-wishlist-label");
-  if (wishLabel) {
-    const saved = wishBtn.classList.contains("is-saved");
-    wishLabel.textContent = saved ? t("profile.removeWish") : t("profile.saveWishlist");
-  }
 
   const accordionKeys = {
     "accordion-info-body": "product.info",

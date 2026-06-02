@@ -123,6 +123,12 @@ body.admin-body {
   color: var(--admin-muted);
 }
 
+.admin-storage-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
 .admin-topbar-actions {
   display: flex;
   align-items: center;
@@ -427,78 +433,4 @@ body.admin-body {
 .profile-btn svg {
   width: 22px;
   height: 22px;
-}
-
-.admin-upload-panel {
-  margin: 20px;
-  padding: 20px;
-  border: 0.5px solid var(--admin-border);
-  border-radius: 12px;
-  background: #fff;
-}
-
-.admin-upload-title {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.admin-upload-lead {
-  margin: 0 0 16px;
-  font-size: 13px;
-  color: var(--admin-muted);
-  line-height: 1.45;
-}
-
-.admin-upload-lead code {
-  font-size: 12px;
-}
-
-.admin-upload-meta {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: var(--admin-muted);
-}
-
-.admin-firebase-form {
-  max-width: 360px;
-  margin-bottom: 16px;
-}
-
-.admin-btn-primary--compact {
-  width: auto;
-  padding-inline: 20px;
-}
-
-.admin-upload-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.admin-upload-controls .admin-field {
-  flex: 1 1 220px;
-  margin-bottom: 0;
-}
-
-.admin-image-preview {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 0.5px solid var(--admin-border);
-}
-
-.admin-image-preview img {
-  display: block;
-  width: 160px;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 0.5px solid var(--admin-border);
-}
-
-.admin-image-preview a {
-  word-break: break-all;
-  color: var(--admin-save);
 }

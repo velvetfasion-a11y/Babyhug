@@ -1,57 +1,20 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function isAdmin() {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && userDoc().data.role == 'admin';
-    }
-
-    // User profiles: only the signed-in owner can read/write their document
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // First-time profile (auth-profile.js ensureUserProfile)
-      allow create: if isOwner(userId)
-        && request.resource.data.role == 'user'
-        && request.resource.data.wishlist is list
-        && request.resource.data.email is string
-        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
-        && (!('cart' in request.resource.data) || request.resource.data.cart is list);
+      match /wishlist/{itemId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
 
-      // Updates: cannot change role; wishlist must stay a list
-      allow update: if isOwner(userId)
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.email is string
-        && request.resource.data.wishlist is list
-        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
-        && (!('cart' in request.resource.data) || request.resource.data.cart is list);
-
-      allow delete: if false;
+      match /cart/{lineId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
-    // Store catalog: public read, admin-only write
-    match /products/{productId} {
-      allow read: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // Deny everything else by default
-    match /{document=**} {
+    // Admin product overrides — server Admin SDK only (clients cannot read/write)
+    match /admin/{document=**} {
       allow read, write: if false;
     }
   }

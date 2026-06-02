@@ -1,3 +1,10 @@
+import {
+  canUseAuth,
+  getCurrentUser,
+  onAuthChange,
+  signInWithGoogle,
+  signOutUser,
+} from "./auth.js";
 import { bootstrap } from "./bootstrap.js";
 import {
   fetchAllCJProducts,
@@ -18,17 +25,20 @@ import {
 import { formatStoreAmount } from "./currency.js";
 import { getWishlist, removeFromWishlist, wishlistId } from "./wishlist.js";
 import { t } from "./i18n.js";
-import { auth } from "./firebase-config.js";
-import { signOutUser } from "./auth-session.js";
-import { loadUserProfile, updateUserProfileFields } from "./auth-profile.js";
-import { clearAuthCache, whenAuthReady } from "./user-firestore.js";
+
+const PROFILE_KEY = "babyhug-profile";
 
 const els = {
+  authBanner: document.getElementById("profile-auth-banner"),
+  authHint: document.getElementById("profile-auth-hint"),
+  googleBtn: document.getElementById("profile-google-btn"),
+  googleLabel: document.getElementById("profile-google-label"),
+  signOutBtn: document.getElementById("profile-signout-btn"),
+  signedInAs: document.getElementById("profile-signed-in-as"),
   avatar: document.getElementById("profile-avatar"),
   name: document.getElementById("profile-name"),
   email: document.getElementById("profile-email"),
   editBtn: document.getElementById("profile-edit-btn"),
-  signOutBtn: document.getElementById("profile-signout-btn"),
   wishlist: document.getElementById("profile-wishlist"),
   recs: document.getElementById("profile-recs"),
   cartItems: document.getElementById("profile-cart-items"),
@@ -38,39 +48,28 @@ const els = {
   toast: document.getElementById("profile-toast"),
 };
 
-/** @type {import('firebase/auth').User | null} */
-let firebaseUser = null;
-/** @type {Record<string, unknown> | null} */
-let firestoreProfile = null;
+function readProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    const data = raw ? JSON.parse(raw) : null;
+    return {
+      name: data?.name?.trim() || "Guest",
+      email: data?.email?.trim() || "",
+    };
+  } catch {
+    return { name: "Guest", email: "" };
+  }
+}
+
+function writeProfile(data) {
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
+}
 
 function initials(name) {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function displayName() {
-  const fromProfile = String(firestoreProfile?.displayName ?? "").trim();
-  if (fromProfile) return fromProfile;
-  const fromAuth = String(firebaseUser?.displayName ?? "").trim();
-  if (fromAuth) return fromAuth;
-  const email = String(firebaseUser?.email ?? firestoreProfile?.email ?? "").trim();
-  if (email.includes("@")) return email.split("@")[0];
-  return "Account";
-}
-
-function displayEmail() {
-  return (
-    String(firestoreProfile?.email ?? "").trim() ||
-    String(firebaseUser?.email ?? "").trim()
-  );
-}
-
-/** Require email/password or Google — not anonymous or empty sessions. */
-function hasVerifiedAccount(user) {
-  if (!user || user.isAnonymous) return false;
-  return Boolean(user.email?.trim() || user.phoneNumber?.trim());
 }
 
 function showToast(message) {
@@ -85,18 +84,6 @@ function showToast(message) {
 
 function cartHasLine(id) {
   return getCartLines().some((line) => line.id === id);
-}
-
-function formatItemOptions(item) {
-  if (Array.isArray(item.options) && item.options.length) {
-    return item.options.map((o) => `${o.name}: ${o.value}`).join(" · ");
-  }
-  if (item.selectedOptions && typeof item.selectedOptions === "object") {
-    return Object.entries(item.selectedOptions)
-      .map(([name, value]) => `${name}: ${value}`)
-      .join(" · ");
-  }
-  return "";
 }
 
 function cjToLine(product) {
@@ -129,15 +116,10 @@ function addProductToCart(item) {
   addToCartItem({
     id: item.id,
     pid: item.pid,
-    vid: item.vid ?? item.variantId,
-    variantId: item.variantId ?? item.vid,
-    sku: item.sku ?? item.variantSku,
-    variantSku: item.variantSku ?? item.sku,
+    sku: item.sku,
     name: item.name,
     image: item.image,
     price: Number(item.price) || 0,
-    selectedOptions: item.selectedOptions ?? {},
-    options: item.options ?? [],
   });
   showToast(t("profile.addedToCart", { name: item.name }));
   renderProfileCart();
@@ -145,14 +127,117 @@ function addProductToCart(item) {
   renderRecommendations(window.__profileCatalog ?? []);
 }
 
+function displayNameForUser(user, profile) {
+  if (user?.displayName?.trim()) return user.displayName.trim();
+  if (profile.name && profile.name !== "Guest") return profile.name;
+  if (user?.email) return user.email.split("@")[0];
+  return profile.name || "Guest";
+}
+
+function displayEmailForUser(user, profile) {
+  if (user?.email) return user.email;
+  return profile.email || "";
+}
+
 function renderProfileHeader() {
-  const name = displayName();
-  const email = displayEmail();
-  if (els.avatar) els.avatar.textContent = initials(name);
+  const user = getCurrentUser();
+  const profile = readProfile();
+  const name = displayNameForUser(user, profile);
+  const email = displayEmailForUser(user, profile);
+
+  if (els.avatar) {
+    if (user?.photoURL) {
+      els.avatar.innerHTML = `<img src="${escapeHtml(user.photoURL)}" alt="" width="48" height="48" />`;
+      els.avatar.classList.add("has-photo");
+    } else {
+      els.avatar.classList.remove("has-photo");
+      els.avatar.textContent = initials(name);
+    }
+  }
   if (els.name) els.name.textContent = name;
   if (els.email) {
     els.email.textContent = email || t("profile.noEmail");
   }
+  if (els.signedInAs) {
+    if (user) {
+      els.signedInAs.hidden = false;
+      els.signedInAs.textContent = t("profile.signedInWithGoogle");
+    } else {
+      els.signedInAs.hidden = true;
+      els.signedInAs.textContent = "";
+    }
+  }
+  if (els.editBtn) {
+    els.editBtn.hidden = Boolean(user);
+  }
+  if (els.signOutBtn) {
+    els.signOutBtn.hidden = !user;
+  }
+  if (els.authBanner) {
+    els.authBanner.hidden = Boolean(user);
+  }
+}
+
+function renderAuthUi() {
+  if (els.authHint) {
+    els.authHint.textContent = canUseAuth()
+      ? t("profile.authHint")
+      : t("profile.authNotConfigured");
+  }
+  if (els.googleBtn) {
+    els.googleBtn.disabled = !canUseAuth();
+    els.googleBtn.hidden = !canUseAuth();
+  }
+  if (els.googleLabel) {
+    els.googleLabel.textContent = t("profile.signInGoogle");
+  }
+  if (els.signOutBtn) {
+    els.signOutBtn.textContent = t("profile.signOut");
+  }
+  renderProfileHeader();
+}
+
+function bindAuth() {
+  els.googleBtn?.addEventListener("click", async () => {
+    if (!canUseAuth()) return;
+    els.googleBtn.disabled = true;
+    try {
+      const user = await signInWithGoogle();
+      if (user?.displayName || user?.email) {
+        writeProfile({
+          name: displayNameForUser(user, readProfile()),
+          email: user.email ?? "",
+        });
+      }
+      showToast(t("profile.signedIn"));
+      renderProfileHeader();
+      renderWishlist();
+      renderProfileCart();
+      renderCart();
+    } catch (err) {
+      console.error(err);
+      showToast(t("profile.signInFailed"));
+    } finally {
+      els.googleBtn.disabled = false;
+    }
+  });
+
+  els.signOutBtn?.addEventListener("click", async () => {
+    try {
+      await signOutUser();
+      showToast(t("profile.signedOut"));
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  onAuthChange(() => {
+    renderProfileHeader();
+    renderWishlist();
+    renderProfileCart();
+    renderCart();
+    renderRecommendations(window.__profileCatalog ?? []);
+  });
 }
 
 function renderWishlist() {
@@ -183,7 +268,7 @@ function renderWishlist() {
             <div class="profile-wish-name">
               <a href="${escapeHtml(href)}">${escapeHtml(item.name)}</a>
             </div>
-            <div class="profile-wish-cat">${escapeHtml(formatItemOptions(item) || item.category || "")}</div>
+            <div class="profile-wish-cat">${escapeHtml(item.category || "")}</div>
           </div>
           <span class="profile-wish-price">${escapeHtml(price)}</span>
           <div class="profile-icon-actions">
@@ -232,74 +317,88 @@ function pickRecommendations(products, wishlist, limit = 4) {
     });
   }
 
-  return scored.slice(0, limit);
+  return scored.slice(0, limit).map(cjToLine);
 }
 
 function renderRecommendations(products) {
   if (!els.recs) return;
-  const wishlist = getWishlist();
-  const picks = pickRecommendations(products, wishlist);
+  const recs = pickRecommendations(products, getWishlist(), 4);
 
-  if (!picks.length) {
+  if (!recs.length) {
     els.recs.innerHTML = `<p class="profile-empty">${escapeHtml(t("profile.recsEmpty"))}</p>`;
     return;
   }
 
-  els.recs.innerHTML = picks
-    .map((p) => {
-      const line = cjToLine(p);
-      const href = line.href || "shop.html";
+  els.recs.innerHTML = recs
+    .map((item) => {
+      const inCart = cartHasLine(item.id);
       return `
-        <a href="${escapeHtml(href)}" class="profile-rec-card">
-          <img src="${escapeHtml(line.image || "")}" alt="" width="120" height="120" loading="lazy" />
-          <span class="profile-rec-name">${escapeHtml(line.name)}</span>
-          <span class="profile-rec-price">${escapeHtml(line.displayPrice)}</span>
-        </a>`;
+        <article class="profile-rec-card">
+          <a href="${escapeHtml(item.href)}" class="profile-rec-img">
+            <img src="${escapeHtml(item.image)}" alt="" width="200" height="130" loading="lazy" />
+          </a>
+          <div class="profile-rec-body">
+            <div class="profile-rec-name">${escapeHtml(item.name)}</div>
+            <div class="profile-rec-cat">${escapeHtml(item.category)}</div>
+            <div class="profile-rec-footer">
+              <span class="profile-rec-price">${escapeHtml(item.displayPrice)}</span>
+              <button type="button" class="profile-icon-btn${inCart ? " is-added" : ""}" data-rec-cart="${escapeHtml(item.id)}" aria-label="${escapeHtml(t("profile.addToCart"))}">
+                ${inCart ? "✓" : "🛒"}
+              </button>
+            </div>
+          </div>
+        </article>`;
     })
     .join("");
+
+  els.recs.querySelectorAll("[data-rec-cart]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = recs.find((r) => r.id === btn.dataset.recCart);
+      if (item) addProductToCart(item);
+    });
+  });
 }
 
 function renderProfileCart() {
-  if (!els.cartItems) return;
+  if (!els.cartItems || !els.cartFooter || !els.cartTotal) return;
+
   const lines = getCartLines();
 
   if (!lines.length) {
     els.cartItems.innerHTML = `<p class="profile-empty">${escapeHtml(t("profile.cartEmpty"))}</p>`;
-    if (els.cartFooter) els.cartFooter.hidden = true;
+    els.cartFooter.hidden = true;
     return;
   }
 
   let total = 0;
   els.cartItems.innerHTML = lines
     .map((line) => {
-      const qty = Number(line.qty) || 1;
-      const lineTotal = (Number(line.price) || 0) * qty;
-      total += lineTotal;
-      const opts = formatItemOptions(line);
+      total += line.price * line.qty;
       return `
-        <article class="profile-cart-line" data-line-id="${escapeHtml(line.id)}">
-          <a href="${escapeHtml(line.href || "shop.html")}" class="profile-cart-thumb">
-            <img src="${escapeHtml(line.image || "")}" alt="" width="48" height="48" loading="lazy" />
-          </a>
+        <article class="profile-cart-item" data-line-id="${escapeHtml(line.id)}">
+          <div class="profile-cart-thumb">
+            <img src="${escapeHtml(line.image)}" alt="" width="44" height="44" loading="lazy" />
+          </div>
           <div class="profile-cart-info">
             <div class="profile-cart-name">${escapeHtml(line.name)}</div>
-            ${opts ? `<div class="profile-cart-opts">${escapeHtml(opts)}</div>` : ""}
-            <div class="profile-cart-meta">${escapeHtml(t("profile.qty", { n: qty }))}</div>
+            <div class="profile-cart-sub">${escapeHtml(t("profile.qty", { n: line.qty }))}</div>
           </div>
-          <span class="profile-cart-price">${escapeHtml(formatStoreAmount(lineTotal))}</span>
-          <button type="button" class="profile-cart-remove" data-remove-line="${escapeHtml(line.id)}" aria-label="Remove">×</button>
+          <span class="profile-cart-price">${escapeHtml(formatStoreAmount(line.price * line.qty))}</span>
+          <button type="button" class="profile-remove-btn" data-remove-line="${escapeHtml(line.id)}" aria-label="${escapeHtml(t("cart.remove", { name: line.name }))}">✕</button>
         </article>`;
     })
     .join("");
 
-  if (els.cartTotal) els.cartTotal.textContent = formatStoreAmount(total);
-  if (els.cartFooter) els.cartFooter.hidden = false;
+  els.cartTotal.textContent = formatStoreAmount(total);
+  els.cartFooter.hidden = false;
 
   els.cartItems.querySelectorAll("[data-remove-line]").forEach((btn) => {
     btn.addEventListener("click", () => {
       removeFromCartLine(btn.dataset.removeLine);
-      renderProfileCart();
       renderCart();
+      renderProfileCart();
+      renderWishlist();
+      renderRecommendations(window.__profileCatalog ?? []);
     });
   });
 }
@@ -324,64 +423,16 @@ function initMobileNav() {
   nav.querySelectorAll("a").forEach((link) => link.addEventListener("click", shut));
 }
 
-let loggingOut = false;
-
-async function handleLogout() {
-  if (loggingOut) return;
-  loggingOut = true;
-
-  const btn = els.signOutBtn;
-
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Logging out…";
-  }
-
-  try {
-    await signOutUser();
-    clearAuthCache();
-    window.location.assign("login.html?signedOut=1");
-  } catch (err) {
-    console.error("Logout failed:", err);
-    loggingOut = false;
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Log out";
-    }
-    showToast("Log out failed. Please try again.");
-  }
-}
-
-function bindProfileActions() {
-  els.signOutBtn?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleLogout();
-  });
-
-  els.editBtn?.addEventListener("click", async () => {
-    if (!firebaseUser) return;
-
-    const name = prompt(t("profile.promptName"), displayName());
+function bindProfileEdit() {
+  els.editBtn?.addEventListener("click", () => {
+    if (getCurrentUser()) return;
+    const profile = readProfile();
+    const name = prompt(t("profile.promptName"), profile.name);
     if (name == null) return;
-    const email = prompt(t("profile.promptEmail"), displayEmail());
+    const email = prompt(t("profile.promptEmail"), profile.email);
     if (email == null) return;
-
-    try {
-      await updateUserProfileFields(firebaseUser.uid, {
-        displayName: name.trim(),
-        email: email.trim(),
-      });
-      firestoreProfile = {
-        ...firestoreProfile,
-        displayName: name.trim(),
-        email: email.trim(),
-      };
-      renderProfileHeader();
-    } catch (err) {
-      console.error(err);
-      showToast("Could not save profile. Please try again.");
-    }
+    writeProfile({ name: name.trim() || "Guest", email: email.trim() });
+    renderProfileHeader();
   });
 
   els.checkoutBtn?.addEventListener("click", () => {
@@ -404,40 +455,13 @@ async function loadCatalog() {
 
 async function initProfilePage() {
   await bootstrap();
-
-  const user = await whenAuthReady();
-  if (!user || !hasVerifiedAccount(user)) {
-    if (user) {
-      try {
-        await signOutUser();
-        clearAuthCache();
-      } catch {
-        /* ignore */
-      }
-    }
-    window.location.replace("login.html?next=profile.html");
-    return;
-  }
-
-  firebaseUser = user;
-  bindProfileActions();
-  renderProfileHeader();
-
-  try {
-    firestoreProfile = await loadUserProfile(user);
-  } catch (err) {
-    console.warn("Firestore profile unavailable, using account info:", err);
-    firestoreProfile = {
-      email: user.email ?? "",
-      displayName: user.displayName ?? "",
-    };
-  }
-
-  renderProfileHeader();
   initMobileNav();
   initCart();
+  renderAuthUi();
+  bindAuth();
   renderWishlist();
   renderProfileCart();
+  bindProfileEdit();
   await loadCatalog();
 
   window.addEventListener("storage", (e) => {
@@ -447,6 +471,18 @@ async function initProfilePage() {
       renderRecommendations(window.__profileCatalog ?? []);
       renderCart();
     }
+  });
+
+  window.addEventListener("babyhug-wishlist-updated", () => {
+    renderWishlist();
+    renderRecommendations(window.__profileCatalog ?? []);
+  });
+
+  window.addEventListener("babyhug-cart-updated", () => {
+    renderProfileCart();
+    renderCart();
+    renderWishlist();
+    renderRecommendations(window.__profileCatalog ?? []);
   });
 }
 

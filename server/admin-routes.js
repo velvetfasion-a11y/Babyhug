@@ -3,6 +3,7 @@ import { productName } from "./product-category.js";
 import {
   ADMIN_CATEGORIES,
   applyOverridesToList,
+  getOverridesStorageMode,
   getProductOverride,
   loadOverrides,
   normalizeCategoryList,
@@ -10,9 +11,12 @@ import {
 } from "./product-overrides.js";
 import {
   bearerToken,
+  clearLoginAttempts,
   createSession,
   destroyToken,
   getAdminCredentials,
+  isLoginRateLimited,
+  recordFailedLogin,
   requireAdmin,
   validateToken,
   verifyCredentials,
@@ -108,10 +112,24 @@ export function registerAdminRoutes(app, {
   invalidateCatalogCache,
 }) {
   app.post("/api/admin/login", (req, res) => {
+    const clientKey =
+      req.ip ||
+      req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+      "unknown";
+
+    if (isLoginRateLimited(clientKey)) {
+      return res.status(429).json({
+        error: "Too many login attempts. Try again in a few minutes.",
+      });
+    }
+
     const { username, password } = req.body ?? {};
     if (!verifyCredentials(username, password)) {
+      recordFailedLogin(clientKey);
       return res.status(401).json({ error: "Invalid username or password" });
     }
+
+    clearLoginAttempts(clientKey);
     const token = createSession(username);
     res.json({ success: true, token, user: username });
   });
@@ -124,7 +142,11 @@ export function registerAdminRoutes(app, {
   app.get("/api/admin/me", (req, res) => {
     const user = validateToken(bearerToken(req));
     if (!user) return res.status(401).json({ error: "Unauthorized" });
-    res.json({ user, username: getAdminCredentials().username });
+    res.json({
+      user,
+      username: getAdminCredentials().username,
+      overridesStorage: getOverridesStorageMode(),
+    });
   });
 
   app.get("/api/product-overrides", (_req, res) => {

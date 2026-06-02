@@ -1,5 +1,3 @@
-import { initAdminImageUpload } from "./admin-image-upload.js";
-
 const TOKEN_KEY = "bh_admin_token";
 
 const loginEl = document.getElementById("admin-login");
@@ -14,6 +12,7 @@ const logoutBtn = document.getElementById("logout-btn");
 /** @type {Array<{pid:string,sku:string,name:string,image:string,cjPriceDisplay:string,priceDisplay:string,category:string,editMode:null|'price'|'cat',saved:boolean,pendingCat?:string}>} */
 let state = [];
 let categories = [];
+let overridesStorage = "file";
 
 function getToken() {
   return sessionStorage.getItem(TOKEN_KEY);
@@ -59,13 +58,26 @@ function showLogin() {
 function showApp() {
   loginEl.hidden = true;
   appEl.hidden = false;
-  initAdminImageUpload();
+}
+
+function updateStorageHint() {
+  const hint = document.getElementById("admin-storage-hint");
+  if (!hint) return;
+  if (overridesStorage === "firestore") {
+    hint.hidden = false;
+    hint.textContent = "Product edits save to Firebase Firestore";
+  } else {
+    hint.hidden = false;
+    hint.textContent = "Product edits save to data/product-overrides.json (set FIREBASE_SERVICE_ACCOUNT_JSON for Firestore)";
+  }
 }
 
 async function verifySession() {
   if (!getToken()) return false;
   try {
-    await api("/api/admin/me");
+    const data = await api("/api/admin/me");
+    overridesStorage = data.overridesStorage ?? "file";
+    updateStorageHint();
     return true;
   } catch {
     setToken(null);
