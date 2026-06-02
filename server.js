@@ -109,6 +109,27 @@ app.get("/health", (_req, res) => {
   });
 });
 
+app.get("/api/firebase-config", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    apiKey: process.env.FIREBASE_API_KEY || "AIzaSyCWh9cXWSsbmslW9VY28iSgO1s4yLFIT5Q",
+    authDomain:
+      process.env.FIREBASE_AUTH_DOMAIN ||
+      (process.env.FIREBASE_PROJECT_ID
+        ? `${process.env.FIREBASE_PROJECT_ID}.firebaseapp.com`
+        : "babyhug-bb69a.firebaseapp.com"),
+    projectId: process.env.FIREBASE_PROJECT_ID || "babyhug-bb69a",
+    storageBucket:
+      process.env.FIREBASE_STORAGE_BUCKET || "babyhug-bb69a.firebasestorage.app",
+    messagingSenderId:
+      process.env.FIREBASE_MESSAGING_SENDER_ID || "394763144155",
+    appId:
+      process.env.FIREBASE_APP_ID ||
+      "1:394763144155:web:d6251c40df1f34216ef5fe",
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-PJ342FREYH",
+  });
+});
+
 app.get("/api/store-config", async (req, res) => {
   try {
     const config = await buildStoreConfig(req);

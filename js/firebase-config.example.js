@@ -1,4 +1,7 @@
-/** Copy to js/firebase-config.js and paste values from Firebase Console → Project settings → Your apps */
+/**
+ * Optional local fallback.
+ * Runtime config is fetched from /api/firebase-config (env-backed in server.js).
+ */
 export const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "your-project.firebaseapp.com",

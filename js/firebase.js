@@ -5,21 +5,22 @@ import {
 } from "https://esm.sh/firebase@12.14.0/analytics";
 import { getAuth } from "https://esm.sh/firebase@12.14.0/auth";
 import { getFirestore } from "https://esm.sh/firebase@12.14.0/firestore";
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig, loadFirebaseConfig } from "./firebase-config.js";
 
 let app = null;
 let auth = null;
 let db = null;
 let analytics = null;
+let resolvedConfig = firebaseConfig;
 
 export function isFirebaseConfigured() {
-  const key = firebaseConfig?.apiKey ?? "";
+  const key = resolvedConfig?.apiKey ?? "";
   return (
     Boolean(key) &&
     !key.includes("YOUR_") &&
     key !== "YOUR_API_KEY" &&
-    Boolean(firebaseConfig?.projectId) &&
-    !firebaseConfig.projectId.includes("your-project")
+    Boolean(resolvedConfig?.projectId) &&
+    !resolvedConfig.projectId.includes("your-project")
   );
 }
 
@@ -30,13 +31,15 @@ export async function initFirebase() {
   }
   if (app) return { app, auth, db, analytics };
 
+  resolvedConfig = await loadFirebaseConfig();
+
   if (!isFirebaseConfigured()) {
     console.warn("Firebase: add your config in js/firebase-config.js");
     return { app: null, auth: null, db: null, analytics: null };
   }
 
   try {
-    app = initializeApp(firebaseConfig);
+    app = initializeApp(resolvedConfig);
     auth = getAuth(app);
     db = getFirestore(app);
 
