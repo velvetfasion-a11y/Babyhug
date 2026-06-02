@@ -247,19 +247,15 @@ function updatePriceDisplay(product, variant) {
 function updateSkuDisplay(product, variant) {
   const skuEl = document.getElementById("product-sku");
   if (!skuEl) return;
-  const sku =
-    variant?.variantSku ??
-    product.sku ??
-    product.productSku ??
-    "";
-  skuEl.textContent = sku ? t("product.sku", { sku }) : "";
+  skuEl.textContent = "";
+  skuEl.hidden = true;
 }
 
 function updateMainImage(product, variant) {
   const mainImg = document.getElementById("product-main-img");
   if (!mainImg) return;
 
-  const name = product.name ?? productName(product);
+  const name = productName(product);
   let src = "";
 
   if (product.image) {
@@ -382,7 +378,7 @@ function initGallery(product) {
   const images = product.image
     ? [product.image, product.image, product.image]
     : parseCjImages(product);
-  const name = product.name ?? productName(product);
+  const name = productName(product);
 
   thumbs.forEach((btn, i) => {
     btn.addEventListener("click", () => {
@@ -423,7 +419,7 @@ function buildCartItem(product) {
 
   const price = variantDisplayPrice(variant ?? null, product);
 
-  const baseName = product.name ?? productName(product);
+  const baseName = productName(product);
   const name = variant?.variantNameEn
     ? `${baseName} — ${variant.variantNameEn}`
     : variant?.variantKey
@@ -539,7 +535,7 @@ function renderProduct(product) {
   hideProductLoading();
   product = product.slug ? product : normalizeCjProduct(product);
 
-  const name = product.name ?? productName(product);
+  const name = productName(product);
   const images = product.image ? [product.image] : parseCjImages(product);
   const mainImage = images[0] ?? "";
 

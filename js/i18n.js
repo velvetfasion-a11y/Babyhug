@@ -21,10 +21,10 @@ const STRINGS = {
     "nav.cart": "Cart, {count} items",
     "nav.profile": "Your profile",
     "promo.giftWrap": "Complimentary gift wrapping on all orders over $120",
-    "hero.title": "Gentle First Moments",
+    "hero.title": "Wrapped in love from day one",
     "hero.subtitle":
       "Discover a curated world of organic cotton layers and hand-crafted treasures for your little one",
-    "hero.cta": "Shop the Collection",
+    "hero.cta": "Shop Courture",
     "home.curated": "Curated for Comfort",
     "home.keepsakes": "Cherished Keepsakes",
     "home.viewFavorites": "View All Favorites",

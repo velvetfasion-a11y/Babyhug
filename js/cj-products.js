@@ -46,6 +46,10 @@ function parseCjName(value) {
   return String(value);
 }
 
+function hasLatinLetters(text) {
+  return /[A-Za-z]/.test(String(text ?? ""));
+}
+
 export function productName(product) {
   if (product?.adminTitle) return String(product.adminTitle).trim();
 
@@ -53,14 +57,19 @@ export function productName(product) {
     ? product.productNameSet[0]
     : null;
 
-  return (
-    parseCjName(fromSet) ||
-    parseCjName(product.nameEn) ||
-    parseCjName(product.productNameEn) ||
-    parseCjName(product.productName) ||
-    product.sku ||
-    "Product"
-  );
+  const candidates = [
+    parseCjName(product.nameEn),
+    parseCjName(product.productNameEn),
+    parseCjName(fromSet),
+    parseCjName(product.productName),
+  ]
+    .map((s) => String(s ?? "").trim())
+    .filter(Boolean);
+
+  const latinName = candidates.find(hasLatinLetters);
+  if (latinName) return latinName;
+
+  return product.sku || product.productSku || "Product";
 }
 
 /** CJ price in visitor's currency (USD base + markup, converted). */
