@@ -1,3 +1,5 @@
+import { formatCatalogPriceUsd } from "./currency.js";
+
 export const WIX_MEDIA = "https://static.wixstatic.com/media";
 
 export function wixImage(fileId, w, h) {
@@ -5,7 +7,7 @@ export function wixImage(fileId, w, h) {
 }
 
 export function formatPrice(amount) {
-  return `$${amount.toFixed(2)}`;
+  return formatCatalogPriceUsd(amount);
 }
 
 export function slugify(name) {
@@ -16,7 +18,7 @@ export function slugify(name) {
 }
 
 export function productUrl(slug) {
-  return `/product.html?id=${encodeURIComponent(slug)}`;
+  return `product.html?id=${encodeURIComponent(slug)}`;
 }
 
 const defaultDescription =

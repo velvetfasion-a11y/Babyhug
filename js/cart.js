@@ -1,10 +1,8 @@
-import { getProductBySlug, wixImage, formatPrice } from "./products.js";
-import {
-  parseCjPrice,
-  PRICE_ADD_ON,
-  parseImageUrl,
-  productName,
-} from "./cj-products.js";
+import { getProductBySlug, wixImage } from "./products.js";
+import { parseImageUrl, productName } from "./cj-products.js";
+import { formatStoreAmount } from "./currency.js";
+import { t } from "./i18n.js";
+import { whenAuthReady, saveCartLineToFirestore } from "./user-firestore.js";
 
 const STORAGE_KEY = "babyhug-cart";
 
@@ -22,7 +20,12 @@ function writeCart(items) {
 }
 
 function lineId(line) {
-  return line.id ?? line.slug ?? (line.pid ? `cj-${line.pid}` : `cj-${line.sku}`);
+  return (
+    line.id ??
+    (line.vid ? `cj-vid-${line.vid}` : null) ??
+    line.slug ??
+    (line.pid ? `cj-${line.pid}` : `cj-${line.sku}`)
+  );
 }
 
 function itemCount(items) {
@@ -41,6 +44,11 @@ function resolveLine(line) {
       slug: line.slug,
       pid: line.pid,
       sku: line.sku,
+      vid: line.vid,
+      variantId: line.variantId ?? line.vid,
+      variantSku: line.variantSku,
+      selectedOptions: line.selectedOptions ?? {},
+      options: line.options ?? [],
     };
   }
 
@@ -72,7 +80,11 @@ function cartSubtotal(items) {
  */
 export function addToCartItem(item, qty = 1) {
   const amount = Math.max(1, Math.min(99, parseInt(String(qty), 10) || 1));
-  const id = item.id ?? item.slug ?? (item.pid ? `cj-${item.pid}` : `cj-${item.sku}`);
+  const id =
+    item.id ??
+    (item.vid ? `cj-vid-${item.vid}` : null) ??
+    item.slug ??
+    (item.pid ? `cj-${item.pid}` : `cj-${item.sku}`);
 
   const line = {
     id,
@@ -83,6 +95,11 @@ export function addToCartItem(item, qty = 1) {
     slug: item.slug,
     pid: item.pid,
     sku: item.sku,
+    vid: item.vid,
+    variantId: item.variantId ?? item.vid,
+    variantSku: item.variantSku,
+    selectedOptions: item.selectedOptions ?? {},
+    options: item.options ?? [],
   };
 
   const items = readCart();
@@ -95,6 +112,13 @@ export function addToCartItem(item, qty = 1) {
   }
   writeCart(items);
   renderCart();
+
+  whenAuthReady().then(() => {
+    saveCartLineToFirestore(line).catch((err) =>
+      console.warn("Firestore cart sync skipped:", err)
+    );
+  });
+
   return items;
 }
 
@@ -133,8 +157,8 @@ function removeLine(id) {
 }
 
 function cartTitle(count) {
-  const label = count === 1 ? "item" : "items";
-  return `Cart (${count} ${label})`;
+  const label = count === 1 ? t("cart.item") : t("cart.items");
+  return t("cart.title", { count, label });
 }
 
 function injectCartMarkup() {
@@ -153,36 +177,36 @@ function injectCartMarkup() {
       aria-labelledby="cart-drawer-title"
     >
       <header class="cart-drawer-header">
-        <h2 id="cart-drawer-title" class="cart-drawer-title">Cart (0 items)</h2>
-        <button type="button" class="cart-drawer-close" aria-label="Close cart">&times;</button>
+        <h2 id="cart-drawer-title" class="cart-drawer-title">${cartTitle(0)}</h2>
+        <button type="button" class="cart-drawer-close" aria-label="${t("cart.close")}">&times;</button>
       </header>
       <div class="cart-drawer-scroll">
         <div id="cart-items" class="cart-items"></div>
-        <p id="cart-empty" class="cart-empty" hidden>Your cart is empty.</p>
+        <p id="cart-empty" class="cart-empty" hidden>${t("cart.empty")}</p>
         <button type="button" class="cart-promo" id="cart-promo-btn">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
             <line x1="7" y1="7" x2="7.01" y2="7" />
           </svg>
-          Enter a promo code
+          ${t("cart.promo")}
         </button>
         <div class="cart-totals" id="cart-totals">
           <div class="cart-totals-row">
-            <span>Estimated total</span>
-            <strong id="cart-estimated-total">$0.00</strong>
+            <span>${t("cart.estimatedTotal")}</span>
+            <strong id="cart-estimated-total">${formatStoreAmount(0)}</strong>
           </div>
-          <p class="cart-totals-note">Taxes and shipping are calculated at checkout.</p>
+          <p class="cart-totals-note">${t("cart.taxesNote")}</p>
         </div>
       </div>
       <footer class="cart-drawer-footer">
-        <button type="button" class="cart-btn-checkout" id="cart-checkout-btn">Checkout</button>
-        <button type="button" class="cart-btn-view" id="cart-view-btn">View Cart</button>
+        <button type="button" class="cart-btn-checkout" id="cart-checkout-btn">${t("cart.checkout")}</button>
+        <button type="button" class="cart-btn-view" id="cart-view-btn">${t("cart.viewCart")}</button>
         <p class="cart-secure">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
             <rect x="3" y="11" width="18" height="11" rx="2" />
             <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
-          Secure Checkout
+          ${t("cart.secure")}
         </p>
       </footer>
     </aside>
@@ -229,7 +253,7 @@ function renderCartItems(items) {
 
   container.innerHTML = resolved
     .map((line) => {
-      const total = formatPrice(line.price * line.qty);
+      const total = formatStoreAmount(line.price * line.qty);
       const name = escapeHtml(line.name);
       return `
         <article class="cart-line" data-line-id="${escapeHtml(line.id)}">
@@ -243,15 +267,15 @@ function renderCartItems(items) {
           <div class="cart-line-body">
             <div class="cart-line-top">
               <h3 class="cart-line-name">${name}</h3>
-              <button type="button" class="cart-line-remove" aria-label="Remove ${name}">
+              <button type="button" class="cart-line-remove" aria-label="${t("cart.remove", { name })}">
                 ${trashIcon()}
               </button>
             </div>
             <div class="cart-line-bottom">
               <div class="cart-line-qty">
-                <button type="button" class="cart-qty-minus" aria-label="Decrease quantity">−</button>
+                <button type="button" class="cart-qty-minus" aria-label="${t("product.decreaseQty")}">−</button>
                 <span class="cart-qty-value">${line.qty}</span>
-                <button type="button" class="cart-qty-plus" aria-label="Increase quantity">+</button>
+                <button type="button" class="cart-qty-plus" aria-label="${t("product.increaseQty")}">+</button>
               </div>
               <span class="cart-line-price">${total}</span>
             </div>
@@ -275,6 +299,18 @@ function renderCartItems(items) {
   });
 }
 
+export function getCartLines() {
+  return readCart().map(resolveLine).filter(Boolean);
+}
+
+export function removeFromCartLine(id) {
+  removeLine(id);
+}
+
+export function getCartItemCount() {
+  return itemCount(getCartLines());
+}
+
 export function renderCart() {
   const raw = readCart();
   const valid = raw.filter((line) => resolveLine(line));
@@ -285,7 +321,7 @@ export function renderCart() {
   const totalEl = document.getElementById("cart-estimated-total");
 
   if (title) title.textContent = cartTitle(count);
-  if (totalEl) totalEl.textContent = formatPrice(cartSubtotal(valid));
+  if (totalEl) totalEl.textContent = formatStoreAmount(cartSubtotal(valid));
 
   renderCartItems(valid);
   updateCartButtons(count);
@@ -293,7 +329,7 @@ export function renderCart() {
 
 function updateCartButtons(count) {
   document.querySelectorAll(".cart-btn").forEach((btn) => {
-    btn.setAttribute("aria-label", `Cart, ${count} items`);
+    btn.setAttribute("aria-label", t("nav.cart", { count }));
     let badge = btn.querySelector(".cart-count");
     if (count > 0) {
       if (!badge) {

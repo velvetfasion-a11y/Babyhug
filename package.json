@@ -6,11 +6,12 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "node server.js",
+    "dev": "lsof -ti:3000 | xargs kill -9 2>/dev/null; node server.js",
     "start": "node server.js"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "firebase": "^12.14.0"
   }
 }

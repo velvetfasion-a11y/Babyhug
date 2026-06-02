@@ -23,8 +23,18 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
+          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
+          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
+          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
+        }
+      }
+    </script>
   </head>
-  <body>
+  <body data-page="home">
     <div class="promo-bar" aria-hidden="true">
       <div class="promo-track">
         <span>Complimentary gift wrapping on all orders over $120</span>
@@ -44,14 +54,24 @@
           <a href="shop.html">Shop All</a>
           <a href="shop.html?category=Boy">Boy</a>
           <a href="shop.html?category=Girl">Girl</a>
-          <a href="shop.html?category=Toys">Toys</a>
+          <a href="shop.html?category=Toys">Childrens toys</a>
         </nav>
 
-        <a href="index.html" class="logo">Baby Hug</a>
+        <div class="header-brand">
+          <a href="index.html" class="logo">Baby Hug</a>
+          <nav class="nav-sub" aria-label="Secondary">
+            <a href="shop.html?badge=Sale">Sale</a>
+            <a href="#about">About</a>
+          </nav>
+        </div>
 
-        <nav class="nav-right" aria-label="Secondary">
-          <a href="shop.html?badge=Sale">Sale</a>
-          <a href="#about">About</a>
+        <nav class="nav-right" aria-label="Account">
+          <a href="profile.html" class="profile-btn" aria-label="Your profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M5 20c0-4 3.5-6 7-6s7 2 7 6" />
+            </svg>
+          </a>
           <button type="button" class="cart-btn" aria-label="Cart, 0 items">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 6h15l-1.5 9h-12z" />
@@ -69,9 +89,10 @@
       <a href="shop.html">Shop All</a>
       <a href="shop.html?category=Boy">Boy</a>
       <a href="shop.html?category=Girl">Girl</a>
-      <a href="shop.html?category=Toys">Toys</a>
+      <a href="shop.html?category=Toys">Childrens toys</a>
       <a href="shop.html?badge=Sale">Sale</a>
       <a href="#about">About</a>
+      <a href="profile.html">Your profile</a>
       <a href="#care">Care</a>
       <a href="#faq">FAQ</a>
     </nav>
@@ -103,35 +124,12 @@
         </div>
       </section>
 
-      <section class="gifting-section" aria-labelledby="gifting-title">
-        <div class="gifting-split">
-          <div class="gifting-media">
-            <img
-              src="https://static.wixstatic.com/media/c837a6_acc0229590f24a7e930a264de81caff2~mv2.png/v1/fill/w_800,h_600,al_c,q_85,enc_auto/c837a6_acc0229590f24a7e930a264de81caff2~mv2.png"
-              alt=""
-              width="1200"
-              height="900"
-              loading="lazy"
-            />
-          </div>
-          <div class="gifting-copy">
-            <div class="gifting-copy-inner">
-              <h2 id="gifting-title">The Gifting Suite</h2>
-              <p>
-                Create a custom gift box with a personalized pressed-flower card and premium linen packaging
-              </p>
-              <a href="#shop" class="btn btn--dark">Start Gifting</a>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section id="categories" class="container" aria-labelledby="curated-title">
         <h2 id="curated-title" class="section-title">Curated for Comfort</h2>
         <div class="category-grid">
           <a href="shop.html?category=Boy" class="category-card">
             <img
-              src="https://static.wixstatic.com/media/c837a6_acc0229590f24a7e930a264de81caff2~mv2.png/v1/fill/w_400,h_533,al_c,q_85,enc_auto/c837a6_acc0229590f24a7e930a264de81caff2~mv2.png"
+              src="images/boy-category.png"
               alt="Boy"
               width="600"
               height="800"
@@ -141,7 +139,7 @@
           </a>
           <a href="shop.html?category=Girl" class="category-card">
             <img
-              src="https://static.wixstatic.com/media/c837a6_947ee6aeb0274b409a3aee27cc1e57a8~mv2.png/v1/fill/w_400,h_533,al_c,q_85,enc_auto/c837a6_947ee6aeb0274b409a3aee27cc1e57a8~mv2.png"
+              src="images/girl-category.png"
               alt="Girl"
               width="600"
               height="800"
@@ -152,12 +150,12 @@
           <a href="shop.html?category=Toys" class="category-card">
             <img
               src="https://static.wixstatic.com/media/c837a6_75a150d97b134f27b74c3714aad9e4b2~mv2.png/v1/fill/w_400,h_533,al_c,q_85,enc_auto/c837a6_75a150d97b134f27b74c3714aad9e4b2~mv2.png"
-              alt="Toys"
+              alt="Childrens toys"
               width="600"
               height="800"
               loading="lazy"
             />
-            <span>Toys</span>
+            <span>Childrens toys</span>
           </a>
         </div>
       </section>
@@ -167,7 +165,7 @@
           <div class="keepsakes-panel">
             <div class="keepsakes-panel-header">
               <h2 id="keepsakes-title" class="keepsakes-panel-title">Cherished Keepsakes</h2>
-              <a href="shop.html" class="btn btn--pill">View All Favorites</a>
+              <a href="shop.html?category=Boy-Girl" class="btn btn--pill">View All Favorites</a>
             </div>
             <div class="carousel-wrap">
               <button type="button" class="carousel-arrow carousel-arrow--prev" aria-label="Previous products" hidden>
@@ -302,7 +300,7 @@
           <p id="cj-products-count" class="cj-products-count"></p>
         </div>
         <div id="cj-products-grid" class="cj-products-grid" role="list">
-          <p class="cj-loading">Loading products…</p>
+          <p class="cj-loading" data-i18n-loading>Loading products…</p>
         </div>
       </section>
     </main>
@@ -320,7 +318,7 @@
               <li><a href="shop.html">Shop All</a></li>
               <li><a href="shop.html?category=Boy">Boy</a></li>
               <li><a href="shop.html?category=Girl">Girl</a></li>
-              <li><a href="shop.html?category=Toys">Toys</a></li>
+              <li><a href="shop.html?category=Toys">Childrens toys</a></li>
               <li><a href="shop.html?badge=Sale">Sale</a></li>
             </ul>
           </div>

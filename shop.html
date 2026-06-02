@@ -13,8 +13,18 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
+          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
+          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
+          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
+        }
+      }
+    </script>
   </head>
-  <body class="page-shop">
+  <body class="page-shop" data-page="shop">
     <div class="promo-bar" aria-hidden="true">
       <div class="promo-track">
         <span>Complimentary gift wrapping on all orders over $120</span>
@@ -34,14 +44,24 @@
           <a href="shop.html" class="is-active">Shop All</a>
           <a href="shop.html?category=Boy">Boy</a>
           <a href="shop.html?category=Girl">Girl</a>
-          <a href="shop.html?category=Toys">Toys</a>
+          <a href="shop.html?category=Toys">Childrens toys</a>
         </nav>
 
-        <a href="index.html" class="logo">Baby Hug</a>
+        <div class="header-brand">
+          <a href="index.html" class="logo">Baby Hug</a>
+          <nav class="nav-sub" aria-label="Secondary">
+            <a href="shop.html?badge=Sale">Sale</a>
+            <a href="index.html#about">About</a>
+          </nav>
+        </div>
 
-        <nav class="nav-right" aria-label="Secondary">
-          <a href="shop.html?badge=Sale">Sale</a>
-          <a href="index.html#about">About</a>
+        <nav class="nav-right" aria-label="Account">
+          <a href="profile.html" class="profile-btn" aria-label="Your profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M5 20c0-4 3.5-6 7-6s7 2 7 6" />
+            </svg>
+          </a>
           <button type="button" class="cart-btn" aria-label="Cart, 0 items">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 6h15l-1.5 9h-12z" />
@@ -59,9 +79,10 @@
       <a href="shop.html">Shop All</a>
       <a href="shop.html?category=Boy">Boy</a>
       <a href="shop.html?category=Girl">Girl</a>
-      <a href="shop.html?category=Toys">Toys</a>
+      <a href="shop.html?category=Toys">Childrens toys</a>
       <a href="shop.html?badge=Sale">Sale</a>
       <a href="index.html#about">About</a>
+      <a href="profile.html">Your profile</a>
     </nav>
 
     <main class="shop-page">
@@ -76,7 +97,7 @@
             <button type="button" class="filter-btn is-active" data-filter="all">All</button>
             <button type="button" class="filter-btn" data-filter="Boy">Boy</button>
             <button type="button" class="filter-btn" data-filter="Girl">Girl</button>
-            <button type="button" class="filter-btn" data-filter="Toys">Toys</button>
+            <button type="button" class="filter-btn" data-filter="Toys">Childrens toys</button>
             <button type="button" class="filter-btn" data-filter="Sale">Sale</button>
             <button type="button" class="filter-btn" data-filter="New Arrival">New In</button>
             <button type="button" class="filter-btn" data-filter="Best Seller">Best Sellers</button>
@@ -99,7 +120,7 @@
           </div>
         </div>
 
-        <div id="shop-grid" class="shop-grid" role="list" aria-live="polite" aria-label="Products"></div>
+        <div id="product-grid" class="shop-grid" role="list" aria-live="polite" aria-label="Products"></div>
 
         <p id="shop-no-results" class="shop-no-results" hidden>
           No products match your filters. <button type="button" id="shop-clear-btn" class="shop-clear-link">Clear filters</button>
@@ -120,7 +141,7 @@
               <li><a href="shop.html">Shop All</a></li>
               <li><a href="shop.html?category=Boy">Boy</a></li>
               <li><a href="shop.html?category=Girl">Girl</a></li>
-              <li><a href="shop.html?category=Toys">Toys</a></li>
+              <li><a href="shop.html?category=Toys">Childrens toys</a></li>
               <li><a href="shop.html?badge=Sale">Sale</a></li>
             </ul>
           </div>
@@ -149,6 +170,6 @@
       </div>
     </footer>
 
-    <script type="module" src="js/shop.js"></script>
+    <script type="module" src="js/shop-live.js"></script>
   </body>
 </html>

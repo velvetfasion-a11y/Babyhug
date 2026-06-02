@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — Baby Hug</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500&family=Libre+Baskerville:wght@400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/admin.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
+          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
+          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
+          "firebase/storage": "https://esm.sh/firebase@12.14.0/storage",
+          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
+        }
+      }
+    </script>
+  </head>
+  <body class="admin-body">
+    <section id="admin-login" class="admin-login" aria-label="Sign in">
+      <div class="admin-login-card">
+        <h1>Baby Hug Admin</h1>
+        <p>Sign in to edit product categories and prices.</p>
+        <form id="login-form">
+          <div class="admin-field">
+            <label for="admin-user">Username</label>
+            <input
+              id="admin-user"
+              name="username"
+              type="text"
+              autocomplete="username"
+              value="BabyHugadmin.se"
+              required
+            />
+          </div>
+          <div class="admin-field">
+            <label for="admin-pass">Password</label>
+            <input
+              id="admin-pass"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </div>
+          <p id="login-error" class="admin-error" role="alert"></p>
+          <button type="submit" class="admin-btn-primary">Sign in</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="admin-app" class="admin-app" hidden>
+      <header class="admin-topbar">
+        <div>
+          <div class="admin-topbar-title">Baby Hug — products</div>
+          <div class="admin-topbar-meta" id="product-count">Loading…</div>
+        </div>
+        <div class="admin-topbar-actions">
+          <a class="admin-view-btn" href="/" target="_blank" rel="noopener">View storefront</a>
+          <button type="button" class="admin-logout-btn" id="logout-btn">Sign out</button>
+        </div>
+      </header>
+
+      <section id="admin-upload-panel" class="admin-upload-panel" aria-labelledby="admin-upload-title">
+        <h2 id="admin-upload-title" class="admin-upload-title">Product image upload</h2>
+        <p class="admin-upload-lead">
+          Uploads go to <code>product-images/</code> in Firebase Storage. Requires Firebase sign-in with
+          <code>role: "admin"</code> in Firestore (separate from the panel login above).
+        </p>
+
+        <p id="admin-firebase-status" class="admin-upload-meta">Checking Firebase…</p>
+
+        <form id="admin-firebase-form" class="admin-firebase-form" hidden>
+          <div class="admin-field">
+            <label for="admin-firebase-email">Firebase email</label>
+            <input id="admin-firebase-email" type="email" autocomplete="email" required />
+          </div>
+          <div class="admin-field">
+            <label for="admin-firebase-pass">Firebase password</label>
+            <input id="admin-firebase-pass" type="password" autocomplete="current-password" required />
+          </div>
+          <p id="admin-firebase-error" class="admin-error" role="alert"></p>
+          <button type="submit" class="admin-btn-primary admin-btn-primary--compact">Sign in to Firebase</button>
+        </form>
+
+        <button type="button" id="admin-firebase-signout" class="admin-logout-btn" hidden>
+          Sign out of Firebase
+        </button>
+
+        <div class="admin-upload-controls">
+          <div class="admin-field">
+            <label for="admin-image-file">Image file</label>
+            <input id="admin-image-file" type="file" accept="image/*" />
+          </div>
+          <button type="button" id="admin-image-upload-btn" class="admin-btn-save" disabled>
+            Upload Image
+          </button>
+        </div>
+
+        <p id="admin-upload-error" class="admin-error" role="alert"></p>
+        <p id="admin-upload-status" class="admin-upload-meta"></p>
+
+        <div id="admin-image-preview" class="admin-image-preview" hidden>
+          <img id="admin-image-preview-img" alt="Uploaded preview" width="160" height="160" />
+          <p class="admin-upload-meta">
+            URL:
+            <a id="admin-image-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+          </p>
+        </div>
+      </section>
+
+      <p id="admin-loading" class="admin-loading">Loading catalog…</p>
+      <div class="admin-grid" id="admin-grid" hidden></div>
+    </div>
+
+    <script type="module" src="js/admin.js?v=5"></script>
+  </body>
+</html>

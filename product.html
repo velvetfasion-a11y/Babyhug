@@ -13,8 +13,18 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
+          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
+          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
+          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
+        }
+      }
+    </script>
   </head>
-  <body class="page-product">
+  <body class="page-product" data-page="product">
     <header class="site-header">
       <div class="container header-inner">
         <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
@@ -27,14 +37,24 @@
           <a href="shop.html">Shop All</a>
           <a href="shop.html?category=Boy">Boy</a>
           <a href="shop.html?category=Girl">Girl</a>
-          <a href="shop.html?category=Toys">Toys</a>
+          <a href="shop.html?category=Toys">Childrens toys</a>
         </nav>
 
-        <a href="index.html" class="logo">Baby Hug</a>
+        <div class="header-brand">
+          <a href="index.html" class="logo">Baby Hug</a>
+          <nav class="nav-sub" aria-label="Secondary">
+            <a href="shop.html?badge=Sale">Sale</a>
+            <a href="index.html#about">About</a>
+          </nav>
+        </div>
 
-        <nav class="nav-right" aria-label="Secondary">
-          <a href="shop.html?badge=Sale">Sale</a>
-          <a href="index.html#about">About</a>
+        <nav class="nav-right" aria-label="Account">
+          <a href="profile.html" class="profile-btn" aria-label="Your profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M5 20c0-4 3.5-6 7-6s7 2 7 6" />
+            </svg>
+          </a>
           <button type="button" class="cart-btn" aria-label="Cart, 0 items">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 6h15l-1.5 9h-12z" />
@@ -52,9 +72,10 @@
       <a href="shop.html">Shop All</a>
       <a href="shop.html?category=Boy">Boy</a>
       <a href="shop.html?category=Girl">Girl</a>
-      <a href="shop.html?category=Toys">Toys</a>
+      <a href="shop.html?category=Toys">Childrens toys</a>
       <a href="shop.html?badge=Sale">Sale</a>
       <a href="index.html#about">About</a>
+      <a href="profile.html">Your profile</a>
     </nav>
 
     <main class="product-page">
@@ -62,14 +83,14 @@
         <div class="product-gallery">
           <div class="product-thumbs" role="list" aria-label="Product images">
             <button type="button" class="product-thumb is-active" aria-label="View image 1">
-              <img src="" alt="" width="80" height="80" />
+              <img alt="" width="80" height="80" decoding="async" />
             </button>
             <button type="button" class="product-thumb" aria-label="View image 2">
-              <img src="" alt="" width="80" height="80" />
+              <img alt="" width="80" height="80" decoding="async" />
             </button>
           </div>
           <div class="product-main-image">
-            <img id="product-main-img" src="" alt="" width="900" height="1100" />
+            <img id="product-main-img" alt="" width="900" height="1100" decoding="async" />
           </div>
         </div>
 
@@ -77,6 +98,8 @@
           <p id="product-sku" class="product-sku">SKU: 000000</p>
           <h1 id="product-title" class="product-detail-title">Product</h1>
           <p id="product-price" class="product-detail-price">$0.00</p>
+
+          <div id="product-options" class="product-options" hidden></div>
 
           <div class="product-qty-block">
             <label for="product-qty">Quantity <span aria-hidden="true">*</span></label>
@@ -87,7 +110,13 @@
             </div>
           </div>
 
-          <button type="button" id="add-to-cart" class="btn btn-primary btn-add-cart">Add to Cart</button>
+          <div class="product-actions">
+            <button type="button" id="add-to-cart" class="btn btn-primary btn-add-cart">Add to Cart</button>
+            <button type="button" id="add-to-wishlist" class="btn btn-wishlist" aria-pressed="false">
+              <span aria-hidden="true">♥</span>
+              <span class="btn-wishlist-label">Save to wishlist</span>
+            </button>
+          </div>
 
           <p id="product-description" class="product-detail-description"></p>
 
@@ -167,6 +196,24 @@
       </div>
     </footer>
 
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var pid = q.get("pid");
+        var sku = q.get("sku");
+        var id = q.get("id");
+        if (!pid && !sku && !id) {
+          location.replace("shop.html");
+          return;
+        }
+        if (pid || sku) {
+          var title = document.getElementById("product-title");
+          var price = document.getElementById("product-price");
+          if (title) title.textContent = "Loading…";
+          if (price) price.textContent = "…";
+        }
+      })();
+    </script>
     <script type="module" src="js/product.js"></script>
   </body>
 </html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Your profile | Baby Hug</title>
+    <meta name="description" content="Your Baby Hug wishlist, recommendations, and cart." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://cf.cjdropshipping.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Epilogue:wght@400;500&family=Libre+Baskerville:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/profile.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://esm.sh/firebase@12.14.0/app",
+          "firebase/auth": "https://esm.sh/firebase@12.14.0/auth",
+          "firebase/firestore": "https://esm.sh/firebase@12.14.0/firestore",
+          "firebase/analytics": "https://esm.sh/firebase@12.14.0/analytics"
+        }
+      }
+    </script>
+  </head>
+  <body class="page-profile" data-page="profile">
+    <div class="promo-bar" aria-hidden="true">
+      <div class="promo-track">
+        <span>Complimentary gift wrapping on all orders over $120</span>
+        <span>Complimentary gift wrapping on all orders over $120</span>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+
+        <nav class="nav-left" aria-label="Primary">
+          <a href="shop.html">Shop All</a>
+          <a href="shop.html?category=Boy">Boy</a>
+          <a href="shop.html?category=Girl">Girl</a>
+          <a href="shop.html?category=Toys">Childrens toys</a>
+        </nav>
+
+        <div class="header-brand">
+          <a href="index.html" class="logo">Baby Hug</a>
+          <nav class="nav-sub" aria-label="Secondary">
+            <a href="shop.html?badge=Sale">Sale</a>
+            <a href="index.html#about">About</a>
+          </nav>
+        </div>
+
+        <nav class="nav-right" aria-label="Account">
+          <a href="profile.html" class="profile-btn is-active" aria-label="Your profile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M5 20c0-4 3.5-6 7-6s7 2 7 6" />
+            </svg>
+          </a>
+          <button type="button" class="cart-btn" aria-label="Cart, 0 items">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M6 6h15l-1.5 9h-12z" />
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="18" cy="20" r="1" />
+              <path d="M6 6L5 3H2" />
+            </svg>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile">
+      <button type="button" class="mobile-nav-close" aria-label="Close menu">&times;</button>
+      <a href="shop.html">Shop All</a>
+      <a href="shop.html?category=Boy">Boy</a>
+      <a href="shop.html?category=Girl">Girl</a>
+      <a href="shop.html?category=Toys">Childrens toys</a>
+      <a href="shop.html?badge=Sale">Sale</a>
+      <a href="index.html#about">About</a>
+      <a href="profile.html">Your profile</a>
+    </nav>
+
+    <div class="profile-wrap">
+      <main class="profile-main">
+        <div class="profile-row">
+          <div id="profile-avatar" class="profile-avatar" aria-hidden="true">?</div>
+          <div>
+            <div id="profile-name" class="profile-name">Guest</div>
+            <div id="profile-email" class="profile-email"></div>
+          </div>
+          <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
+        </div>
+
+        <h2 id="profile-wishlist-title" class="profile-section-title">Wishlist</h2>
+        <div id="profile-wishlist" class="profile-wish-list"></div>
+
+        <h2 id="profile-recs-title" class="profile-section-title">Your baby might like</h2>
+        <p id="profile-recs-sub" class="profile-section-sub">Based on what you've been browsing</p>
+        <div id="profile-recs" class="profile-rec-grid"></div>
+      </main>
+
+      <section class="profile-cart-section" aria-labelledby="profile-cart-title">
+        <h2 id="profile-cart-title" class="profile-cart-title">Cart</h2>
+        <div id="profile-cart-items"></div>
+        <div id="profile-cart-footer" hidden>
+          <div class="profile-cart-total-row">
+            <span class="profile-cart-total-label">Total</span>
+            <span id="profile-cart-total" class="profile-cart-total-val"></span>
+          </div>
+          <button type="button" id="profile-checkout-btn" class="profile-checkout-btn">Checkout</button>
+        </div>
+      </section>
+
+      <p id="profile-toast" class="profile-toast" role="status" aria-live="polite"></p>
+    </div>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-bottom">
+          <span>&copy; 2035 Baby Hug</span>
+          <a href="index.html">Back to home</a>
+        </div>
+      </div>
+    </footer>
+
+    <script type="module" src="js/profile.js"></script>
+  </body>
+</html>

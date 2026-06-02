@@ -1,26 +1,35 @@
-import { fetchCJProducts, buildCarouselCard } from "./cj-products.js";
+import {
+  buildCarouselCard,
+  fetchCJProducts,
+  pickBoyGirlCarousel,
+  attachProductCardPrefetch,
+} from "./cj-products.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
+import { t } from "./i18n.js";
+import { bootstrap } from "./bootstrap.js";
 
 async function renderKeepsakesCarousel() {
   const track = document.getElementById("products-carousel");
   if (!track) return;
 
-  track.innerHTML = `<p class="carousel-loading">Loading favorites…</p>`;
+  track.innerHTML = `<p class="carousel-loading">${t("loading.favorites")}</p>`;
 
   try {
-    const { products } = await fetchCJProducts(12);
+    const { products } = await fetchCJProducts(48);
+    const boyGirl = pickBoyGirlCarousel(products, 12);
 
-    if (!products.length) {
-      track.innerHTML = `<p class="carousel-loading">No products in your catalog yet.</p>`;
+    if (!boyGirl.length) {
+      track.innerHTML = `<p class="carousel-loading">${t("loading.noFavorites")}</p>`;
       return;
     }
 
-    track.innerHTML = products.map((p) => buildCarouselCard(p)).join("");
+    track.innerHTML = boyGirl.map((p) => buildCarouselCard(p)).join("");
+    attachProductCardPrefetch(track);
     initCarouselArrows(track);
   } catch (err) {
     console.error("Keepsakes carousel:", err);
-    track.innerHTML = `<p class="carousel-loading">Could not load favorites. Check that the server is running.</p>`;
+    track.innerHTML = `<p class="carousel-loading">${t("error.favorites")}</p>`;
   }
 }
 
@@ -81,12 +90,13 @@ function initNewsletter() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const email = new FormData(form).get("email");
-    alert(`Thank you! We'll send gentle updates to ${email}.`);
+    alert(t("newsletter.thanks", { email }));
     form.reset();
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await bootstrap();
   renderKeepsakesCarousel();
   initMobileNav();
   initNewsletter();

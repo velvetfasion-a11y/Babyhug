@@ -1,4 +1,6 @@
 import {
+  attachProductCardPrefetch,
+  attachWishlistButtons,
   buildProductCard,
   fetchAllCJProducts,
   priceNumber,
@@ -8,6 +10,8 @@ import {
 } from "./cj-products.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
+import { t } from "./i18n.js";
+import { bootstrap } from "./bootstrap.js";
 
 function initMobileNav() {
   const toggle = document.querySelector(".menu-toggle");
@@ -68,7 +72,7 @@ function renderGrid(products, activeFilter, sortValue) {
   if (!filtered.length) {
     grid.innerHTML = "";
     noResults.hidden = false;
-    if (countEl) countEl.textContent = "0 products";
+    if (countEl) countEl.textContent = t("shop.productCountPlural", { count: 0 });
     return;
   }
 
@@ -76,8 +80,13 @@ function renderGrid(products, activeFilter, sortValue) {
   grid.innerHTML = filtered
     .map((p) => buildProductCard(p, "shop-card"))
     .join("");
+  attachProductCardPrefetch(grid);
+  attachWishlistButtons(grid, filtered);
   if (countEl) {
-    countEl.textContent = `${filtered.length} product${filtered.length === 1 ? "" : "s"}`;
+    countEl.textContent =
+      filtered.length === 1
+        ? t("shop.productCount", { count: filtered.length })
+        : t("shop.productCountPlural", { count: filtered.length });
   }
 }
 
@@ -95,15 +104,16 @@ function updateHeading(activeFilter) {
   const el = document.getElementById("shop-heading");
   if (!el) return;
   const labelMap = {
-    all: "Shop All",
-    Boy: "Boy",
-    Girl: "Girl",
-    Toys: "Toys",
-    Sale: "Sale",
-    "New Arrival": "New In",
-    "Best Seller": "Best Sellers",
+    all: "shop.title",
+    Boy: "shop.boy",
+    Girl: "shop.girl",
+    "Boy-Girl": "shop.boyGirl",
+    Toys: "shop.toys",
+    Sale: "shop.sale",
+    "New Arrival": "shop.newIn",
+    "Best Seller": "shop.bestSellers",
   };
-  el.textContent = labelMap[activeFilter] || "Shop All";
+  el.textContent = t(labelMap[activeFilter] || "shop.title");
 }
 
 async function init() {
@@ -115,7 +125,7 @@ async function init() {
   let sortValue = "default";
   let allProducts = [];
 
-  grid.innerHTML = `<p class="cj-loading">Loading products…</p>`;
+  grid.innerHTML = `<p class="cj-loading">${t("shop.loading")}</p>`;
 
   try {
     const data = await fetchAllCJProducts();
@@ -155,7 +165,8 @@ async function init() {
   });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await bootstrap();
   initMobileNav();
   whenIdle(() => initCart());
   init();
