@@ -86,6 +86,15 @@
       </div>
     </main>
 
-    <script type="module" src="js/login.js"></script>
+    <script type="module">
+      import("./js/login.js").catch((err) => {
+        console.error(err);
+        const box = document.getElementById("auth-error");
+        if (box) {
+          box.textContent =
+            "Could not load Firebase (check that js/firebase-config.js exists on the server).";
+        }
+      });
+    </script>
   </body>
 </html>

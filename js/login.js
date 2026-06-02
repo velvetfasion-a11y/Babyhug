@@ -1,14 +1,18 @@
 /**
  * Baby Hug login — vanilla JS + Firebase v9+ modular SDK.
  * Imports auth and db from private ./firebase-config.js (same folder).
+ *
+ * Google OAuth Web client ID is configured in Firebase Console only — not in this file.
  */
 import { auth, db } from "./firebase-config.js";
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
@@ -69,6 +73,7 @@ function showError(message) {
 }
 
 function authErrorMessage(err) {
+  const code = err?.code ?? "";
   const map = {
     "auth/invalid-email": "Please enter a valid email address.",
     "auth/user-disabled": "This account has been disabled.",
@@ -78,13 +83,19 @@ function authErrorMessage(err) {
     "auth/email-already-in-use": "An account already exists with this email.",
     "auth/weak-password": "Password must be at least 6 characters.",
     "auth/popup-closed-by-user": "Sign-in was cancelled.",
-    "auth/popup-blocked": "Popup was blocked. Allow popups for this site and try again.",
+    "auth/popup-blocked":
+      "Popup blocked — trying full-page sign-in, or allow popups for this site.",
     "auth/cancelled-popup-request": "Sign-in was cancelled.",
-    "auth/unauthorized-domain": "This domain is not authorized in Firebase. Add it under Authentication → Settings → Authorized domains.",
-    "auth/operation-not-allowed": "Google sign-in is not enabled in Firebase Console.",
+    "auth/unauthorized-domain":
+      "This site is not authorized. In Firebase: Authentication → Settings → Authorized domains — add this hostname.",
+    "auth/operation-not-allowed":
+      "Google sign-in is off. In Firebase: Authentication → Sign-in method → enable Google.",
+    "auth/invalid-api-key": "Invalid Firebase API key in js/firebase-config.js.",
     "auth/too-many-requests": "Too many attempts. Please wait and try again.",
   };
-  return map[err?.code] ?? err?.message ?? "Something went wrong. Please try again.";
+  const hint = map[code];
+  if (hint) return hint;
+  return err?.message || "Something went wrong. Please try again.";
 }
 
 async function completeAuth(user) {
@@ -100,6 +111,50 @@ async function completeAuth(user) {
     console.error("ensureUserProfile failed:", err);
     showError("Signed in, but we could not set up your profile. Please try again.");
     redirecting = false;
+    setBusy(false);
+  }
+}
+
+function createGoogleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
+
+function handleGoogleSignIn() {
+  showError("");
+  setBusy(true);
+
+  const provider = createGoogleProvider();
+
+  signInWithPopup(auth, provider)
+    .then((credential) => completeAuth(credential.user))
+    .catch((error) => {
+      console.error(error);
+
+      if (error?.code === "auth/popup-blocked") {
+        signInWithRedirect(auth, provider).catch((redirectError) => {
+          console.error(redirectError);
+          showError(authErrorMessage(redirectError));
+          setBusy(false);
+        });
+        return;
+      }
+
+      showError(authErrorMessage(error));
+      setBusy(false);
+    });
+}
+
+async function finishGoogleRedirectIfNeeded() {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result?.user) {
+      await completeAuth(result.user);
+    }
+  } catch (error) {
+    console.error(error);
+    showError(authErrorMessage(error));
     setBusy(false);
   }
 }
@@ -129,25 +184,10 @@ function setMode(next) {
   showError("");
 }
 
-function handleGoogleSignIn() {
-  showError("");
-  setBusy(true);
-
-  const provider = new GoogleAuthProvider();
-
-  signInWithPopup(auth, provider)
-    .then((credential) => completeAuth(credential.user))
-    .catch((error) => {
-      console.error(error);
-      showError(authErrorMessage(error));
-      setBusy(false);
-    });
-}
-
 function bindEventListeners() {
   if (!els.googleLoginBtn) {
     console.error(
-      "Google login button not found. Expected <button id=\"google-login-btn\"> in login.html."
+      'Google login button not found. Expected <button id="google-login-btn"> in login.html.'
     );
   } else {
     els.googleLoginBtn.addEventListener("click", (e) => {
@@ -182,28 +222,34 @@ function bindEventListeners() {
   });
 }
 
-function initLoginPage() {
+async function initLoginPage() {
   els = buildElements();
 
   if (!auth) {
     console.error("Firebase auth is not initialized. Check js/firebase-config.js on the server.");
-    showError("Sign-in is unavailable. Firebase configuration is missing.");
+    showError("Sign-in is unavailable. Firebase configuration is missing on this server.");
     return;
   }
 
   setMode("sign-in");
   bindEventListeners();
 
+  await finishGoogleRedirectIfNeeded();
+
   onAuthStateChanged(auth, (user) => {
-    if (user) completeAuth(user);
+    if (user && !redirecting) {
+      completeAuth(user);
+    }
   });
 }
 
 function startLoginApp() {
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initLoginPage);
+    document.addEventListener("DOMContentLoaded", () => {
+      initLoginPage().catch((err) => console.error(err));
+    });
   } else {
-    initLoginPage();
+    initLoginPage().catch((err) => console.error(err));
   }
 }
 
