@@ -109,8 +109,9 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.get("/api/firebase-config", (_req, res) => {
-  res.json({
+// Firebase web keys are provided only via Render environment variables.
+app.get("/api/firebase-config", (req, res) => {
+  const config = {
     apiKey: process.env.FIREBASE_API_KEY,
     authDomain: process.env.FIREBASE_AUTH_DOMAIN,
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -118,7 +119,15 @@ app.get("/api/firebase-config", (_req, res) => {
     messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.FIREBASE_APP_ID,
     measurementId: process.env.FIREBASE_MEASUREMENT_ID,
-  });
+  };
+
+  if (!config.apiKey) {
+    return res
+      .status(500)
+      .json({ error: "Firebase config is not properly set on the server" });
+  }
+
+  res.json(config);
 });
 
 app.get("/api/store-config", async (req, res) => {

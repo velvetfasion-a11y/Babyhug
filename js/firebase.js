@@ -5,23 +5,17 @@ import {
 } from "https://esm.sh/firebase@12.14.0/analytics";
 import { getAuth } from "https://esm.sh/firebase@12.14.0/auth";
 import { getFirestore } from "https://esm.sh/firebase@12.14.0/firestore";
-import { firebaseConfig, loadFirebaseConfig } from "./firebase-config.js";
+import { loadFirebaseConfig } from "./firebase-config.js";
 
 let app = null;
 let auth = null;
 let db = null;
 let analytics = null;
-let resolvedConfig = firebaseConfig;
+let resolvedConfig = null;
 
 export function isFirebaseConfigured() {
   const key = resolvedConfig?.apiKey ?? "";
-  return (
-    Boolean(key) &&
-    !key.includes("YOUR_") &&
-    key !== "YOUR_API_KEY" &&
-    Boolean(resolvedConfig?.projectId) &&
-    !resolvedConfig.projectId.includes("your-project")
-  );
+  return Boolean(key) && Boolean(resolvedConfig?.projectId);
 }
 
 /** Initialize Firebase once (browser only). */
@@ -32,11 +26,7 @@ export async function initFirebase() {
   if (app) return { app, auth, db, analytics };
 
   resolvedConfig = await loadFirebaseConfig();
-
-  if (!isFirebaseConfigured()) {
-    console.warn("Firebase: add your config in js/firebase-config.js");
-    return { app: null, auth: null, db: null, analytics: null };
-  }
+  if (!isFirebaseConfigured()) throw new Error("Firebase config is not set");
 
   try {
     app = initializeApp(resolvedConfig);
@@ -49,8 +39,8 @@ export async function initFirebase() {
 
     return { app, auth, db, analytics };
   } catch (err) {
-    console.warn("Firebase init failed:", err);
-    return { app: null, auth: null, db: null, analytics: null };
+    console.error("Firebase init failed:", err);
+    throw err;
   }
 }
 
