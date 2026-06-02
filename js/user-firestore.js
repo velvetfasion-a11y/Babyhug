@@ -8,21 +8,41 @@ let authReady = false;
 /** @type {Array<(user: import('firebase/auth').User | null) => void>} */
 const authWaiters = [];
 
-onAuthStateChanged(auth, (user) => {
-  currentUser = user;
-  authReady = true;
-  authWaiters.splice(0).forEach((fn) => fn(user));
-});
-
-export function getAuthUser() {
-  return currentUser;
+if (auth) {
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (!authReady) {
+      authReady = true;
+      authWaiters.splice(0).forEach((fn) => fn(user));
+    } else {
+      currentUser = user;
+    }
+  });
 }
 
-export function whenAuthReady() {
-  if (authReady) return Promise.resolve(currentUser);
-  return new Promise((resolve) => {
-    authWaiters.push(resolve);
-  });
+/**
+ * Wait until Firebase has restored the session (avoids false "signed out" on page load).
+ * @returns {Promise<import('firebase/auth').User | null>}
+ */
+export async function whenAuthReady() {
+  if (!auth) return null;
+
+  try {
+    await auth.authStateReady();
+    currentUser = auth.currentUser;
+    authReady = true;
+    return auth.currentUser;
+  } catch (err) {
+    console.warn("authStateReady failed:", err);
+    if (authReady) return currentUser;
+    return new Promise((resolve) => {
+      authWaiters.push(resolve);
+    });
+  }
+}
+
+export function getAuthUser() {
+  return currentUser ?? auth?.currentUser ?? null;
 }
 
 function lineKey(line) {
@@ -30,9 +50,10 @@ function lineKey(line) {
 }
 
 export async function saveCartLineToFirestore(line) {
-  if (!currentUser) return false;
+  const user = getAuthUser();
+  if (!user) return false;
 
-  const ref = doc(db, "users", currentUser.uid);
+  const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) return false;
 
@@ -56,9 +77,10 @@ export async function saveCartLineToFirestore(line) {
 }
 
 export async function saveWishlistItemToFirestore(item) {
-  if (!currentUser) return false;
+  const user = getAuthUser();
+  if (!user) return false;
 
-  const ref = doc(db, "users", currentUser.uid);
+  const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) return false;
 
@@ -79,9 +101,10 @@ export async function saveWishlistItemToFirestore(item) {
 }
 
 export async function removeWishlistItemFromFirestore(id) {
-  if (!currentUser || !id) return false;
+  const user = getAuthUser();
+  if (!user || !id) return false;
 
-  const ref = doc(db, "users", currentUser.uid);
+  const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) return false;
 

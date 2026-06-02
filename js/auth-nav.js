@@ -17,7 +17,7 @@ function applyNavLink(el, user) {
     if (el.id === "nav-profile-mobile") el.textContent = "Your profile";
     el.classList.add("is-signed-in");
   } else {
-    el.href = "login.html";
+    el.href = "login.html?next=profile.html";
     el.setAttribute("aria-label", "Sign in");
     el.title = "Sign in";
     if (el.id === "nav-profile-mobile") el.textContent = "Sign in";
