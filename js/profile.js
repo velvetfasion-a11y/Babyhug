@@ -18,10 +18,10 @@ import {
 import { formatStoreAmount } from "./currency.js";
 import { getWishlist, removeFromWishlist, wishlistId } from "./wishlist.js";
 import { t } from "./i18n.js";
-import { signOut } from "firebase/auth";
 import { auth } from "./firebase-config.js";
+import { signOutUser } from "./auth-session.js";
 import { loadUserProfile, updateUserProfileFields } from "./auth-profile.js";
-import { whenAuthReady } from "./user-firestore.js";
+import { clearAuthCache, whenAuthReady } from "./user-firestore.js";
 
 const els = {
   avatar: document.getElementById("profile-avatar"),
@@ -324,7 +324,41 @@ function initMobileNav() {
   nav.querySelectorAll("a").forEach((link) => link.addEventListener("click", shut));
 }
 
-function bindProfileEdit() {
+let loggingOut = false;
+
+async function handleLogout() {
+  if (loggingOut) return;
+  loggingOut = true;
+
+  const btn = els.signOutBtn;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Logging out…";
+  }
+
+  try {
+    await signOutUser();
+    clearAuthCache();
+    window.location.assign("login.html?signedOut=1");
+  } catch (err) {
+    console.error("Logout failed:", err);
+    loggingOut = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Log out";
+    }
+    showToast("Log out failed. Please try again.");
+  }
+}
+
+function bindProfileActions() {
+  els.signOutBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleLogout();
+  });
+
   els.editBtn?.addEventListener("click", async () => {
     if (!firebaseUser) return;
 
@@ -347,16 +381,6 @@ function bindProfileEdit() {
     } catch (err) {
       console.error(err);
       showToast("Could not save profile. Please try again.");
-    }
-  });
-
-  els.signOutBtn?.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      window.location.replace("login.html?next=profile.html");
-    } catch (err) {
-      console.error(err);
-      showToast("Sign out failed.");
     }
   });
 
@@ -383,12 +407,20 @@ async function initProfilePage() {
 
   const user = await whenAuthReady();
   if (!user || !hasVerifiedAccount(user)) {
-    if (user) await signOut(auth).catch(() => {});
+    if (user) {
+      try {
+        await signOutUser();
+        clearAuthCache();
+      } catch {
+        /* ignore */
+      }
+    }
     window.location.replace("login.html?next=profile.html");
     return;
   }
 
   firebaseUser = user;
+  bindProfileActions();
   renderProfileHeader();
 
   try {
@@ -406,7 +438,6 @@ async function initProfilePage() {
   initCart();
   renderWishlist();
   renderProfileCart();
-  bindProfileEdit();
   await loadCatalog();
 
   window.addEventListener("storage", (e) => {

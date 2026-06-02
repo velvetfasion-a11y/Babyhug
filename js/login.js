@@ -233,6 +233,13 @@ async function initLoginPage() {
   setMode("sign-in");
   bindEventListeners();
 
+  if (new URLSearchParams(window.location.search).get("signedOut") === "1") {
+    showError("");
+    if (els.lead) {
+      els.lead.textContent = "You have been signed out. Sign in again to view your profile.";
+    }
+  }
+
   await finishGoogleRedirectIfNeeded();
 }
 

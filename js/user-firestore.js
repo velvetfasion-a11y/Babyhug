@@ -14,10 +14,13 @@ if (auth) {
     if (!authReady) {
       authReady = true;
       authWaiters.splice(0).forEach((fn) => fn(user));
-    } else {
-      currentUser = user;
     }
   });
+}
+
+/** Clear in-memory user after sign-out (auth listener also updates this). */
+export function clearAuthCache() {
+  currentUser = null;
 }
 
 /**
