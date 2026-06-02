@@ -12,7 +12,7 @@ import {
   productName,
   productsLoadErrorHtml,
 } from "./cj-products.js";
-import { listenToProductsCollection } from "./firebase-products-live.js";
+import { listenToProductsCollection } from "./firestore-products-live.js";
 import { initCart } from "./cart.js";
 import { whenIdle } from "./perf.js";
 import { t } from "./i18n.js";
@@ -222,6 +222,7 @@ async function initShopLive() {
   syncActiveFilter(activeFilter);
   updateHeading(activeFilter);
   bindShopControls();
+  loadCjFallback();
   startFirestoreListener();
 }
 

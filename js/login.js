@@ -1,10 +1,8 @@
 /**
- * Baby Hug login — vanilla JS + Firebase v9+ modular SDK.
- * Imports auth and db from private ./firebase-config.js (same folder).
- *
- * Google OAuth Web client ID is configured in Firebase Console only — not in this file.
+ * Baby Hug login — email/password + Google (Firebase Auth).
  */
-import { auth, db } from "./firebase-config.js";
+import { auth } from "./firebase-config.js";
+import { ensureUserProfile } from "./auth-profile.js";
 import {
   createUserWithEmailAndPassword,
   getRedirectResult,
@@ -14,9 +12,6 @@ import {
   signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-
-const HOME_URL = "index.html";
 
 let mode = "sign-in";
 let redirecting = false;
@@ -40,26 +35,20 @@ function buildElements() {
   };
 }
 
-/**
- * Ensure users/{uid} exists. New users: { email, role: "user", wishlist: [] }
- * @param {import('firebase/auth').User} user
- */
-export async function ensureUserProfile(user) {
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+function safeRedirectPath(next) {
+  if (!next || next.includes("://") || next.startsWith("//")) return "profile.html";
+  const path = next.startsWith("/") ? next.slice(1) : next;
+  if (!/^[a-z0-9./?=&_-]+$/i.test(path)) return "profile.html";
+  return path;
+}
 
-  if (snap.exists()) {
-    return snap.data();
-  }
+function afterLoginUrl() {
+  return safeRedirectPath(new URLSearchParams(window.location.search).get("next"));
+}
 
-  const profile = {
-    email: user.email,
-    role: "user",
-    wishlist: [],
-  };
-
-  await setDoc(ref, profile);
-  return profile;
+function isLocalDev() {
+  const h = window.location.hostname;
+  return h === "localhost" || h === "127.0.0.1";
 }
 
 function setBusy(busy) {
@@ -86,14 +75,19 @@ function authErrorMessage(err) {
     "auth/popup-blocked":
       "Popup blocked — trying full-page sign-in, or allow popups for this site.",
     "auth/cancelled-popup-request": "Sign-in was cancelled.",
-    "auth/unauthorized-domain":
-      "This site is not authorized. In Firebase: Authentication → Settings → Authorized domains — add this hostname.",
+    "auth/unauthorized-domain": () => {
+      const host = window.location.hostname;
+      return `“${host}” is not authorized in Firebase. Add it under Authentication → Settings → Authorized domains.`;
+    },
     "auth/operation-not-allowed":
-      "Google sign-in is off. In Firebase: Authentication → Sign-in method → enable Google.",
+      "Google sign-in is off. Enable Google under Firebase Authentication → Sign-in method.",
     "auth/invalid-api-key": "Invalid Firebase API key in js/firebase-config.js.",
+    "auth/permission-denied":
+      "Could not save your profile. Check Firestore rules allow users/{uid} create for signed-in users.",
     "auth/too-many-requests": "Too many attempts. Please wait and try again.",
   };
   const hint = map[code];
+  if (typeof hint === "function") return hint();
   if (hint) return hint;
   return err?.message || "Something went wrong. Please try again.";
 }
@@ -106,12 +100,12 @@ async function completeAuth(user) {
 
   try {
     await ensureUserProfile(user);
-    window.location.href = HOME_URL;
+    window.location.href = afterLoginUrl();
   } catch (err) {
     console.error("ensureUserProfile failed:", err);
-    showError("Signed in, but we could not set up your profile. Please try again.");
     redirecting = false;
     setBusy(false);
+    showError(authErrorMessage(err));
   }
 }
 
@@ -127,12 +121,26 @@ function handleGoogleSignIn() {
 
   const provider = createGoogleProvider();
 
-  signInWithPopup(auth, provider)
-    .then((credential) => completeAuth(credential.user))
+  const signIn = isLocalDev()
+    ? () => signInWithPopup(auth, provider)
+    : () =>
+        signInWithPopup(auth, provider).catch((error) => {
+          if (
+            error?.code === "auth/popup-blocked" ||
+            error?.code === "auth/popup-closed-by-user"
+          ) {
+            return signInWithRedirect(auth, provider);
+          }
+          throw error;
+        });
+
+  signIn()
+    .then((credential) => {
+      if (credential?.user) return completeAuth(credential.user);
+    })
     .catch((error) => {
       console.error(error);
-
-      if (error?.code === "auth/popup-blocked") {
+      if (error?.code === "auth/popup-blocked" && !isLocalDev()) {
         signInWithRedirect(auth, provider).catch((redirectError) => {
           console.error(redirectError);
           showError(authErrorMessage(redirectError));
@@ -140,7 +148,6 @@ function handleGoogleSignIn() {
         });
         return;
       }
-
       showError(authErrorMessage(error));
       setBusy(false);
     });
@@ -185,16 +192,10 @@ function setMode(next) {
 }
 
 function bindEventListeners() {
-  if (!els.googleLoginBtn) {
-    console.error(
-      'Google login button not found. Expected <button id="google-login-btn"> in login.html.'
-    );
-  } else {
-    els.googleLoginBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      handleGoogleSignIn();
-    });
-  }
+  els.googleLoginBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    handleGoogleSignIn();
+  });
 
   els.tabSignIn?.addEventListener("click", () => setMode("sign-in"));
   els.tabRegister?.addEventListener("click", () => setMode("register"));
@@ -226,7 +227,6 @@ async function initLoginPage() {
   els = buildElements();
 
   if (!auth) {
-    console.error("Firebase auth is not initialized. Check js/firebase-config.js on the server.");
     showError("Sign-in is unavailable. Firebase configuration is missing on this server.");
     return;
   }
@@ -244,12 +244,11 @@ async function initLoginPage() {
 }
 
 function startLoginApp() {
+  const run = () => initLoginPage().catch((err) => console.error(err));
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      initLoginPage().catch((err) => console.error(err));
-    });
+    document.addEventListener("DOMContentLoaded", run);
   } else {
-    initLoginPage().catch((err) => console.error(err));
+    run();
   }
 }
 

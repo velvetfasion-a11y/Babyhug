@@ -57,8 +57,7 @@
         </div>
 
         <nav class="nav-right" aria-label="Account">
-          <a href="login.html" class="nav-auth-link">Sign in</a>
-          <a href="profile.html" class="nav-auth-link is-active">Profile</a>
+          <a href="profile.html" class="profile-btn is-active is-signed-in" id="nav-profile-btn" aria-label="Your profile"></a>
           <button type="button" class="cart-btn" aria-label="Cart, 0 items">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
               <path d="M6 6h15l-1.5 9h-12z" />
@@ -79,8 +78,7 @@
       <a href="shop.html?category=Toys">Childrens toys</a>
       <a href="shop.html?badge=Sale">Sale</a>
       <a href="index.html#about">About</a>
-      <a href="login.html">Sign in</a>
-      <a href="profile.html">Profile</a>
+      <a href="profile.html" id="nav-profile-mobile">Your profile</a>
       <a href="admin.html">Admin</a>
     </nav>
 
@@ -89,10 +87,13 @@
         <div class="profile-row">
           <div id="profile-avatar" class="profile-avatar" aria-hidden="true">?</div>
           <div>
-            <div id="profile-name" class="profile-name">Guest</div>
+            <div id="profile-name" class="profile-name">…</div>
             <div id="profile-email" class="profile-email"></div>
           </div>
-          <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
+          <div class="profile-actions">
+            <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
+            <button type="button" id="profile-signout-btn" class="profile-signout-btn">Sign out</button>
+          </div>
         </div>
 
         <h2 id="profile-wishlist-title" class="profile-section-title">Wishlist</h2>

@@ -18,14 +18,17 @@ import {
 import { formatStoreAmount } from "./currency.js";
 import { getWishlist, removeFromWishlist, wishlistId } from "./wishlist.js";
 import { t } from "./i18n.js";
-
-const PROFILE_KEY = "babyhug-profile";
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase-config.js";
+import { loadUserProfile, updateUserProfileFields } from "./auth-profile.js";
+import { whenAuthReady } from "./user-firestore.js";
 
 const els = {
   avatar: document.getElementById("profile-avatar"),
   name: document.getElementById("profile-name"),
   email: document.getElementById("profile-email"),
   editBtn: document.getElementById("profile-edit-btn"),
+  signOutBtn: document.getElementById("profile-signout-btn"),
   wishlist: document.getElementById("profile-wishlist"),
   recs: document.getElementById("profile-recs"),
   cartItems: document.getElementById("profile-cart-items"),
@@ -35,28 +38,33 @@ const els = {
   toast: document.getElementById("profile-toast"),
 };
 
-function readProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    const data = raw ? JSON.parse(raw) : null;
-    return {
-      name: data?.name?.trim() || "Guest",
-      email: data?.email?.trim() || "",
-    };
-  } catch {
-    return { name: "Guest", email: "" };
-  }
-}
-
-function writeProfile(data) {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
-}
+/** @type {import('firebase/auth').User | null} */
+let firebaseUser = null;
+/** @type {Record<string, unknown> | null} */
+let firestoreProfile = null;
 
 function initials(name) {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
   if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function displayName() {
+  const fromProfile = String(firestoreProfile?.displayName ?? "").trim();
+  if (fromProfile) return fromProfile;
+  const fromAuth = String(firebaseUser?.displayName ?? "").trim();
+  if (fromAuth) return fromAuth;
+  const email = String(firebaseUser?.email ?? firestoreProfile?.email ?? "").trim();
+  if (email.includes("@")) return email.split("@")[0];
+  return "Account";
+}
+
+function displayEmail() {
+  return (
+    String(firestoreProfile?.email ?? "").trim() ||
+    String(firebaseUser?.email ?? "").trim()
+  );
 }
 
 function showToast(message) {
@@ -132,11 +140,12 @@ function addProductToCart(item) {
 }
 
 function renderProfileHeader() {
-  const profile = readProfile();
-  if (els.avatar) els.avatar.textContent = initials(profile.name);
-  if (els.name) els.name.textContent = profile.name;
+  const name = displayName();
+  const email = displayEmail();
+  if (els.avatar) els.avatar.textContent = initials(name);
+  if (els.name) els.name.textContent = name;
   if (els.email) {
-    els.email.textContent = profile.email || t("profile.noEmail");
+    els.email.textContent = email || t("profile.noEmail");
   }
 }
 
@@ -217,88 +226,74 @@ function pickRecommendations(products, wishlist, limit = 4) {
     });
   }
 
-  return scored.slice(0, limit).map(cjToLine);
+  return scored.slice(0, limit);
 }
 
 function renderRecommendations(products) {
   if (!els.recs) return;
-  const recs = pickRecommendations(products, getWishlist(), 4);
+  const wishlist = getWishlist();
+  const picks = pickRecommendations(products, wishlist);
 
-  if (!recs.length) {
+  if (!picks.length) {
     els.recs.innerHTML = `<p class="profile-empty">${escapeHtml(t("profile.recsEmpty"))}</p>`;
     return;
   }
 
-  els.recs.innerHTML = recs
-    .map((item) => {
-      const inCart = cartHasLine(item.id);
+  els.recs.innerHTML = picks
+    .map((p) => {
+      const line = cjToLine(p);
+      const href = line.href || "shop.html";
       return `
-        <article class="profile-rec-card">
-          <a href="${escapeHtml(item.href)}" class="profile-rec-img">
-            <img src="${escapeHtml(item.image)}" alt="" width="200" height="130" loading="lazy" />
-          </a>
-          <div class="profile-rec-body">
-            <div class="profile-rec-name">${escapeHtml(item.name)}</div>
-            <div class="profile-rec-cat">${escapeHtml(item.category)}</div>
-            <div class="profile-rec-footer">
-              <span class="profile-rec-price">${escapeHtml(item.displayPrice)}</span>
-              <button type="button" class="profile-icon-btn${inCart ? " is-added" : ""}" data-rec-cart="${escapeHtml(item.id)}" aria-label="${escapeHtml(t("profile.addToCart"))}">
-                ${inCart ? "✓" : "🛒"}
-              </button>
-            </div>
-          </div>
-        </article>`;
+        <a href="${escapeHtml(href)}" class="profile-rec-card">
+          <img src="${escapeHtml(line.image || "")}" alt="" width="120" height="120" loading="lazy" />
+          <span class="profile-rec-name">${escapeHtml(line.name)}</span>
+          <span class="profile-rec-price">${escapeHtml(line.displayPrice)}</span>
+        </a>`;
     })
     .join("");
-
-  els.recs.querySelectorAll("[data-rec-cart]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = recs.find((r) => r.id === btn.dataset.recCart);
-      if (item) addProductToCart(item);
-    });
-  });
 }
 
 function renderProfileCart() {
-  if (!els.cartItems || !els.cartFooter || !els.cartTotal) return;
-
+  if (!els.cartItems) return;
   const lines = getCartLines();
 
   if (!lines.length) {
     els.cartItems.innerHTML = `<p class="profile-empty">${escapeHtml(t("profile.cartEmpty"))}</p>`;
-    els.cartFooter.hidden = true;
+    if (els.cartFooter) els.cartFooter.hidden = true;
     return;
   }
 
   let total = 0;
   els.cartItems.innerHTML = lines
     .map((line) => {
-      total += line.price * line.qty;
+      const qty = Number(line.qty) || 1;
+      const lineTotal = (Number(line.price) || 0) * qty;
+      total += lineTotal;
+      const opts = formatItemOptions(line);
       return `
-        <article class="profile-cart-item" data-line-id="${escapeHtml(line.id)}">
-          <div class="profile-cart-thumb">
-            <img src="${escapeHtml(line.image)}" alt="" width="44" height="44" loading="lazy" />
-          </div>
+        <article class="profile-cart-line" data-line-id="${escapeHtml(line.id)}">
+          <a href="${escapeHtml(line.href || "shop.html")}" class="profile-cart-thumb">
+            <img src="${escapeHtml(line.image || "")}" alt="" width="48" height="48" loading="lazy" />
+          </a>
           <div class="profile-cart-info">
             <div class="profile-cart-name">${escapeHtml(line.name)}</div>
-            <div class="profile-cart-sub">${escapeHtml([formatItemOptions(line), t("profile.qty", { n: line.qty })].filter(Boolean).join(" · "))}</div>
+            ${opts ? `<div class="profile-cart-opts">${escapeHtml(opts)}</div>` : ""}
+            <div class="profile-cart-meta">${escapeHtml(t("profile.qty", { n: qty }))}</div>
           </div>
-          <span class="profile-cart-price">${escapeHtml(formatStoreAmount(line.price * line.qty))}</span>
-          <button type="button" class="profile-remove-btn" data-remove-line="${escapeHtml(line.id)}" aria-label="${escapeHtml(t("cart.remove", { name: line.name }))}">✕</button>
+          <span class="profile-cart-price">${escapeHtml(formatStoreAmount(lineTotal))}</span>
+          <button type="button" class="profile-cart-remove" data-remove-line="${escapeHtml(line.id)}" aria-label="Remove">×</button>
         </article>`;
     })
     .join("");
 
-  els.cartTotal.textContent = formatStoreAmount(total);
-  els.cartFooter.hidden = false;
+  if (els.cartTotal) els.cartTotal.textContent = formatStoreAmount(total);
+  if (els.cartFooter) els.cartFooter.hidden = false;
 
   els.cartItems.querySelectorAll("[data-remove-line]").forEach((btn) => {
     btn.addEventListener("click", () => {
       removeFromCartLine(btn.dataset.removeLine);
-      renderCart();
       renderProfileCart();
-      renderWishlist();
-      renderRecommendations(window.__profileCatalog ?? []);
+      renderCart();
     });
   });
 }
@@ -324,14 +319,39 @@ function initMobileNav() {
 }
 
 function bindProfileEdit() {
-  els.editBtn?.addEventListener("click", () => {
-    const profile = readProfile();
-    const name = prompt(t("profile.promptName"), profile.name);
+  els.editBtn?.addEventListener("click", async () => {
+    if (!firebaseUser) return;
+
+    const name = prompt(t("profile.promptName"), displayName());
     if (name == null) return;
-    const email = prompt(t("profile.promptEmail"), profile.email);
+    const email = prompt(t("profile.promptEmail"), displayEmail());
     if (email == null) return;
-    writeProfile({ name: name.trim() || "Guest", email: email.trim() });
-    renderProfileHeader();
+
+    try {
+      await updateUserProfileFields(firebaseUser.uid, {
+        displayName: name.trim(),
+        email: email.trim(),
+      });
+      firestoreProfile = {
+        ...firestoreProfile,
+        displayName: name.trim(),
+        email: email.trim(),
+      };
+      renderProfileHeader();
+    } catch (err) {
+      console.error(err);
+      showToast("Could not save profile. Please try again.");
+    }
+  });
+
+  els.signOutBtn?.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "login.html";
+    } catch (err) {
+      console.error(err);
+      showToast("Sign out failed.");
+    }
   });
 
   els.checkoutBtn?.addEventListener("click", () => {
@@ -354,6 +374,25 @@ async function loadCatalog() {
 
 async function initProfilePage() {
   await bootstrap();
+
+  const user = await whenAuthReady();
+  if (!user) {
+    window.location.replace("login.html?next=profile.html");
+    return;
+  }
+
+  firebaseUser = user;
+
+  try {
+    firestoreProfile = await loadUserProfile(user);
+  } catch (err) {
+    console.error(err);
+    if (els.name) {
+      els.name.textContent = "Profile unavailable";
+    }
+    return;
+  }
+
   initMobileNav();
   initCart();
   renderProfileHeader();
