@@ -431,9 +431,9 @@ app.use(
     etag: true,
     setHeaders(res, filePath) {
       if (filePath.endsWith(".html")) {
-        res.setHeader("Cache-Control", isProd ? "public, max-age=3600" : "no-cache");
+        res.setHeader("Cache-Control", "no-cache");
       } else if (/\.(js|css)$/.test(filePath)) {
-        res.setHeader("Cache-Control", isProd ? "public, max-age=604800" : "no-cache");
+        res.setHeader("Cache-Control", isProd ? "public, max-age=86400" : "no-cache");
       }
     },
   })

@@ -11,6 +11,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+**Store pages:** `/` · `/shop.html` · `/product.html` · `/profile.html` · `/login.html`  
+**Staff:** `/admin.html` (not linked on the public menu by default — use this URL)
+
+After deploying, hard-refresh the browser (or use a private window) so you do not see an old cached header.
+
 Set your CJ key in `.env`:
 
 ```
