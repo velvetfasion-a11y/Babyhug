@@ -335,6 +335,7 @@ function bindAuth() {
               adminData?.error || t("profile.errorWrongCredentials")
             );
             adminErr.code = "admin-login-failed";
+            adminErr.status = adminRes.status;
             throw adminErr;
           }
           sessionStorage.setItem("bh_admin_token", adminData.token);
@@ -350,7 +351,11 @@ function bindAuth() {
       if (err?.code === "admin-login-failed") {
         loginFailedOnce = true;
         updateForgotPasswordVisibility();
-        showAuthError(t("profile.errorWrongCredentials"));
+        if (err?.status === 429) {
+          showAuthError(t("profile.errorTooManyRequests"));
+        } else {
+          showAuthError(err?.message || t("profile.errorWrongCredentials"));
+        }
         return;
       }
       if (emailAuthMode === "signin") {
