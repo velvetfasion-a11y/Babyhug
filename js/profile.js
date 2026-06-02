@@ -67,6 +67,12 @@ function displayEmail() {
   );
 }
 
+/** Require email/password or Google — not anonymous or empty sessions. */
+function hasVerifiedAccount(user) {
+  if (!user || user.isAnonymous) return false;
+  return Boolean(user.email?.trim() || user.phoneNumber?.trim());
+}
+
 function showToast(message) {
   if (!els.toast) return;
   els.toast.textContent = message;
@@ -347,7 +353,7 @@ function bindProfileEdit() {
   els.signOutBtn?.addEventListener("click", async () => {
     try {
       await signOut(auth);
-      window.location.href = "login.html";
+      window.location.replace("login.html?next=profile.html");
     } catch (err) {
       console.error(err);
       showToast("Sign out failed.");
@@ -376,26 +382,28 @@ async function initProfilePage() {
   await bootstrap();
 
   const user = await whenAuthReady();
-  if (!user) {
+  if (!user || !hasVerifiedAccount(user)) {
+    if (user) await signOut(auth).catch(() => {});
     window.location.replace("login.html?next=profile.html");
     return;
   }
 
   firebaseUser = user;
+  renderProfileHeader();
 
   try {
     firestoreProfile = await loadUserProfile(user);
   } catch (err) {
-    console.error(err);
-    if (els.name) {
-      els.name.textContent = "Profile unavailable";
-    }
-    return;
+    console.warn("Firestore profile unavailable, using account info:", err);
+    firestoreProfile = {
+      email: user.email ?? "",
+      displayName: user.displayName ?? "",
+    };
   }
 
+  renderProfileHeader();
   initMobileNav();
   initCart();
-  renderProfileHeader();
   renderWishlist();
   renderProfileCart();
   bindProfileEdit();

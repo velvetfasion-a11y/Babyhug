@@ -234,16 +234,6 @@ async function initLoginPage() {
   bindEventListeners();
 
   await finishGoogleRedirectIfNeeded();
-
-  // Already signed in (e.g. returned from Google) → go to profile, not home
-  try {
-    await auth.authStateReady();
-    if (auth.currentUser && !redirecting) {
-      await completeAuth(auth.currentUser);
-    }
-  } catch (err) {
-    console.warn("Session check skipped:", err);
-  }
 }
 
 function startLoginApp() {

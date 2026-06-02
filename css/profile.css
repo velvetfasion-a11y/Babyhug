@@ -14,9 +14,15 @@
 
 .profile-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   margin-bottom: 32px;
+}
+
+.profile-meta {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
 }
 
 .profile-avatar {
@@ -47,31 +53,28 @@
   margin-top: 2px;
 }
 
-.profile-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.profile-signout-btn {
-  font-family: var(--font-sans, "DM Sans", sans-serif);
-  font-size: 13px;
-  color: var(--forest);
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.profile-logout-link {
+  display: inline-block;
+  margin-top: 8px;
   padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-sans, "DM Sans", sans-serif);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--sage-mid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
-.profile-signout-btn:hover {
-  opacity: 0.75;
+.profile-logout-link:hover {
+  color: var(--forest);
 }
 
 .profile-edit-btn {
-  margin-left: auto;
+  flex-shrink: 0;
+  margin-top: 4px;
   padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--forest) 20%, transparent);
