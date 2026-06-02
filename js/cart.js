@@ -1,4 +1,3 @@
-import { getCurrentUser } from "./auth.js";
 import { getProductBySlug, wixImage } from "./products.js";
 import { parseImageUrl, productName } from "./cj-products.js";
 import { formatStoreAmount } from "./currency.js";
@@ -20,12 +19,16 @@ function writeCart(items) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   window.dispatchEvent(new CustomEvent("babyhug-cart-updated"));
 
-  const user = getCurrentUser();
-  if (user?.uid) {
-    saveCartToCloud(user.uid, items).catch((err) => {
+  import("./auth.js")
+    .then(({ getCurrentUser }) => {
+      const user = getCurrentUser();
+      if (user?.uid) {
+        return saveCartToCloud(user.uid, items);
+      }
+    })
+    .catch((err) => {
       console.warn("Cart cloud sync failed:", err);
     });
-  }
 }
 
 function lineId(line) {

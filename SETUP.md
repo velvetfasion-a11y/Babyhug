@@ -28,7 +28,8 @@ Locally, `NODE_ENV` is usually **unset** or `development` unless you set it in `
 ## Firebase Console (customers)
 
 1. [Firebase Console](https://console.firebase.google.com/) → **babyhug-bb69a**
-2. **Authentication → Sign-in method** → enable **Google**
+2. **Authentication → Sign-in method** → enable **Email/Password** (Email + Password)
+3. **Authentication → Sign-in method** → enable **Google**
 3. **Authorized domains**: `localhost`, `babyhug.se`, `www.babyhug.se`, your Render host
 4. **Firestore** → create database → **Rules** → paste `firestore.rules` → **Publish**
 5. **Project settings → Web app** → copy config to `js/firebase-config.js`
@@ -75,8 +76,17 @@ FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 
 ---
 
+## Profile blank or old design on babyhug.se
+
+1. **Redeploy** the latest code from GitHub to Render (Manual Deploy → Deploy latest commit).
+2. Ensure **`js/firebase-config.js`** is in the repo (config only, no `import from "firebase/..."`). An old broken file breaks profile JavaScript.
+3. After deploy, hard-refresh: **Cmd+Shift+R** (Mac) or clear cache for babyhug.se.
+4. Open **https://babyhug.se/profile.html** (person icon in header).
+
+---
+
 ## Not implemented yet
 
 - Checkout / payments
-- Email/password sign-in (Google only)
+- Other providers (Apple, Facebook, etc.)
 - Google login for admin (by design — server login only)

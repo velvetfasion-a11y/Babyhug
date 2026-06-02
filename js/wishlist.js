@@ -1,4 +1,3 @@
-import { getCurrentUser } from "./auth.js";
 import {
   addWishlistItemCloud,
   removeWishlistItemCloud,
@@ -60,9 +59,10 @@ function normalizeEntry(item) {
 }
 
 async function syncAddToCloud(entry) {
-  const user = getCurrentUser();
-  if (!user) return;
   try {
+    const { getCurrentUser } = await import("./auth.js");
+    const user = getCurrentUser();
+    if (!user) return;
     await addWishlistItemCloud(user.uid, entry);
   } catch (err) {
     console.warn("Wishlist cloud add failed:", err);
@@ -70,9 +70,10 @@ async function syncAddToCloud(entry) {
 }
 
 async function syncRemoveFromCloud(id) {
-  const user = getCurrentUser();
-  if (!user) return;
   try {
+    const { getCurrentUser } = await import("./auth.js");
+    const user = getCurrentUser();
+    if (!user) return;
     await removeWishlistItemCloud(user.uid, id);
   } catch (err) {
     console.warn("Wishlist cloud remove failed:", err);

@@ -24,7 +24,9 @@ export function getAdminCredentials() {
 }
 
 export function verifyCredentials(username, password) {
-  return username === ADMIN_USER && password === ADMIN_PASSWORD;
+  const entered = String(username ?? "").trim().toLowerCase();
+  const expected = String(ADMIN_USER ?? "").trim().toLowerCase();
+  return entered === expected && password === ADMIN_PASSWORD;
 }
 
 export function isLoginRateLimited(clientKey) {

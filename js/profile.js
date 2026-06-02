@@ -1,7 +1,11 @@
 import {
   canUseAuth,
+  createAccountWithEmail,
   getCurrentUser,
+  mapAuthError,
   onAuthChange,
+  sendPasswordReset,
+  signInWithEmail,
   signInWithGoogle,
   signOutUser,
 } from "./auth.js";
@@ -26,11 +30,24 @@ import { formatStoreAmount } from "./currency.js";
 import { getWishlist, removeFromWishlist, wishlistId } from "./wishlist.js";
 import { t } from "./i18n.js";
 
-const PROFILE_KEY = "babyhug-profile";
+let emailAuthMode = "signin";
+let loginFailedOnce = false;
 
 const els = {
+  account: document.getElementById("profile-account"),
   authBanner: document.getElementById("profile-auth-banner"),
+  authTitle: document.getElementById("profile-auth-title"),
   authHint: document.getElementById("profile-auth-hint"),
+  authError: document.getElementById("profile-auth-error"),
+  emailForm: document.getElementById("profile-email-form"),
+  nameField: document.getElementById("profile-name-field"),
+  nameInput: document.getElementById("profile-name-input"),
+  emailInput: document.getElementById("profile-email-input"),
+  passwordInput: document.getElementById("profile-password-input"),
+  emailSubmit: document.getElementById("profile-email-submit"),
+  toggleMode: document.getElementById("profile-toggle-mode"),
+  linksSep: document.getElementById("profile-links-sep"),
+  forgotPassword: document.getElementById("profile-forgot-password"),
   googleBtn: document.getElementById("profile-google-btn"),
   googleLabel: document.getElementById("profile-google-label"),
   signOutBtn: document.getElementById("profile-signout-btn"),
@@ -38,7 +55,6 @@ const els = {
   avatar: document.getElementById("profile-avatar"),
   name: document.getElementById("profile-name"),
   email: document.getElementById("profile-email"),
-  editBtn: document.getElementById("profile-edit-btn"),
   wishlist: document.getElementById("profile-wishlist"),
   recs: document.getElementById("profile-recs"),
   cartItems: document.getElementById("profile-cart-items"),
@@ -47,23 +63,6 @@ const els = {
   checkoutBtn: document.getElementById("profile-checkout-btn"),
   toast: document.getElementById("profile-toast"),
 };
-
-function readProfile() {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    const data = raw ? JSON.parse(raw) : null;
-    return {
-      name: data?.name?.trim() || "Guest",
-      email: data?.email?.trim() || "",
-    };
-  } catch {
-    return { name: "Guest", email: "" };
-  }
-}
-
-function writeProfile(data) {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(data));
-}
 
 function initials(name) {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -127,26 +126,92 @@ function addProductToCart(item) {
   renderRecommendations(window.__profileCatalog ?? []);
 }
 
-function displayNameForUser(user, profile) {
+function displayName(user) {
   if (user?.displayName?.trim()) return user.displayName.trim();
-  if (profile.name && profile.name !== "Guest") return profile.name;
   if (user?.email) return user.email.split("@")[0];
-  return profile.name || "Guest";
+  return t("profile.account");
 }
 
-function displayEmailForUser(user, profile) {
-  if (user?.email) return user.email;
-  return profile.email || "";
+function signedInLabel(user) {
+  const provider = user?.providerData?.[0]?.providerId;
+  if (provider === "google.com") return t("profile.signedInWithGoogle");
+  if (provider === "password") return t("profile.signedInWithEmail");
+  return t("profile.signedInGeneric");
+}
+
+function showAuthError(message) {
+  if (!els.authError) return;
+  els.authError.textContent = message;
+  els.authError.hidden = !message;
+}
+
+function clearAuthError() {
+  showAuthError("");
+}
+
+function looksLikeEmail(value) {
+  const v = String(value ?? "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function updateForgotPasswordVisibility() {
+  const show =
+    emailAuthMode === "signin" && loginFailedOnce && Boolean(els.forgotPassword);
+  if (els.forgotPassword) els.forgotPassword.hidden = !show;
+  if (els.linksSep) els.linksSep.hidden = !show;
+}
+
+function setEmailAuthMode(mode) {
+  emailAuthMode = mode === "signup" ? "signup" : "signin";
+  const isSignUp = emailAuthMode === "signup";
+
+  if (mode === "signup") {
+    loginFailedOnce = false;
+  }
+
+  els.authBanner?.classList.toggle("is-signup", isSignUp);
+
+  if (els.authTitle) {
+    els.authTitle.textContent = isSignUp
+      ? t("profile.createAccountTitle")
+      : t("profile.signInTitle");
+  }
+  if (els.emailSubmit) {
+    els.emailSubmit.textContent = isSignUp
+      ? t("profile.createAccount")
+      : t("profile.signInEmail");
+  }
+  if (els.toggleMode) {
+    els.toggleMode.textContent = isSignUp
+      ? t("profile.haveAccount")
+      : t("profile.createAccountLink");
+  }
+  if (els.passwordInput) {
+    els.passwordInput.autocomplete = isSignUp ? "new-password" : "current-password";
+  }
+  updateForgotPasswordVisibility();
+  clearAuthError();
+}
+
+function updateProfileVisibility() {
+  const user = getCurrentUser();
+  const signedIn = Boolean(user);
+
+  if (els.account) els.account.hidden = !signedIn;
+  if (els.authBanner) els.authBanner.hidden = signedIn;
+  document.body.classList.toggle("profile-is-signed-in", signedIn);
+  document.body.classList.toggle("profile-is-signed-out", !signedIn);
 }
 
 function renderProfileHeader() {
   const user = getCurrentUser();
-  const profile = readProfile();
-  const name = displayNameForUser(user, profile);
-  const email = displayEmailForUser(user, profile);
+  if (!user) return;
+
+  const name = displayName(user);
+  const email = user.email ?? "";
 
   if (els.avatar) {
-    if (user?.photoURL) {
+    if (user.photoURL) {
       els.avatar.innerHTML = `<img src="${escapeHtml(user.photoURL)}" alt="" width="48" height="48" />`;
       els.avatar.classList.add("has-photo");
     } else {
@@ -155,34 +220,27 @@ function renderProfileHeader() {
     }
   }
   if (els.name) els.name.textContent = name;
-  if (els.email) {
-    els.email.textContent = email || t("profile.noEmail");
-  }
+  if (els.email) els.email.textContent = email;
   if (els.signedInAs) {
-    if (user) {
-      els.signedInAs.hidden = false;
-      els.signedInAs.textContent = t("profile.signedInWithGoogle");
-    } else {
-      els.signedInAs.hidden = true;
-      els.signedInAs.textContent = "";
-    }
-  }
-  if (els.editBtn) {
-    els.editBtn.hidden = Boolean(user);
+    els.signedInAs.textContent = signedInLabel(user);
   }
   if (els.signOutBtn) {
-    els.signOutBtn.hidden = !user;
-  }
-  if (els.authBanner) {
-    els.authBanner.hidden = Boolean(user);
+    els.signOutBtn.textContent = t("profile.signOut");
   }
 }
 
 function renderAuthUi() {
+  setEmailAuthMode(emailAuthMode);
+
   if (els.authHint) {
     els.authHint.textContent = canUseAuth()
       ? t("profile.authHint")
       : t("profile.authNotConfigured");
+  }
+  if (els.emailForm) {
+    els.emailForm.querySelectorAll("input, button").forEach((el) => {
+      el.disabled = !canUseAuth();
+    });
   }
   if (els.googleBtn) {
     els.googleBtn.disabled = !canUseAuth();
@@ -191,32 +249,132 @@ function renderAuthUi() {
   if (els.googleLabel) {
     els.googleLabel.textContent = t("profile.signInGoogle");
   }
-  if (els.signOutBtn) {
-    els.signOutBtn.textContent = t("profile.signOut");
+  if (els.forgotPassword) {
+    els.forgotPassword.textContent = t("profile.forgotPassword");
   }
+  updateForgotPasswordVisibility();
+  updateProfileVisibility();
+}
+
+function refreshSignedInContent() {
+  updateProfileVisibility();
+  const user = getCurrentUser();
+  if (!user) return;
+
   renderProfileHeader();
+  renderWishlist();
+  renderProfileCart();
+
+  if (window.__profileCatalog?.length) {
+    renderRecommendations(window.__profileCatalog);
+  } else {
+    loadCatalog();
+  }
 }
 
 function bindAuth() {
-  els.googleBtn?.addEventListener("click", async () => {
-    if (!canUseAuth()) return;
-    els.googleBtn.disabled = true;
+  els.toggleMode?.addEventListener("click", () => {
+    loginFailedOnce = false;
+    setEmailAuthMode(emailAuthMode === "signup" ? "signin" : "signup");
+  });
+
+  els.forgotPassword?.addEventListener("click", async () => {
+    clearAuthError();
+    const email = els.emailInput?.value?.trim();
+    if (!email) {
+      showAuthError(t("profile.enterEmailFirst"));
+      els.emailInput?.focus();
+      return;
+    }
     try {
-      const user = await signInWithGoogle();
-      if (user?.displayName || user?.email) {
-        writeProfile({
-          name: displayNameForUser(user, readProfile()),
-          email: user.email ?? "",
-        });
+      await sendPasswordReset(email);
+      showToast(t("profile.resetEmailSent"));
+    } catch (err) {
+      console.error(err);
+      showAuthError(mapAuthError(err));
+    }
+  });
+
+  els.emailForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!canUseAuth()) return;
+
+    clearAuthError();
+    const login = els.emailInput?.value?.trim();
+    const password = els.passwordInput?.value ?? "";
+    const name = els.nameInput?.value?.trim() ?? "";
+
+    if (!login || !password) {
+      showAuthError(t("profile.fillEmailPassword"));
+      return;
+    }
+
+    if (els.emailSubmit) els.emailSubmit.disabled = true;
+
+    try {
+      if (emailAuthMode === "signup") {
+        if (!looksLikeEmail(login)) {
+          showAuthError(t("profile.errorInvalidEmail"));
+          return;
+        }
+        await createAccountWithEmail(login, password, name);
+        showToast(t("profile.accountCreated"));
+      } else {
+        if (looksLikeEmail(login)) {
+          await signInWithEmail(login, password);
+          showToast(t("profile.signedIn"));
+        } else {
+          const adminRes = await fetch("/api/admin/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: login, password }),
+          });
+          const adminData = await adminRes.json().catch(() => ({}));
+          if (!adminRes.ok || !adminData?.token) {
+            const adminErr = new Error(
+              adminData?.error || t("profile.errorWrongCredentials")
+            );
+            adminErr.code = "admin-login-failed";
+            throw adminErr;
+          }
+          sessionStorage.setItem("bh_admin_token", adminData.token);
+          window.location.href = "admin.html";
+          return;
+        }
       }
-      showToast(t("profile.signedIn"));
-      renderProfileHeader();
-      renderWishlist();
-      renderProfileCart();
+      els.emailForm?.reset();
+      refreshSignedInContent();
       renderCart();
     } catch (err) {
       console.error(err);
-      showToast(t("profile.signInFailed"));
+      if (err?.code === "admin-login-failed") {
+        loginFailedOnce = true;
+        updateForgotPasswordVisibility();
+        showAuthError(t("profile.errorWrongCredentials"));
+        return;
+      }
+      if (emailAuthMode === "signin") {
+        loginFailedOnce = true;
+        updateForgotPasswordVisibility();
+      }
+      showAuthError(mapAuthError(err));
+    } finally {
+      if (els.emailSubmit) els.emailSubmit.disabled = !canUseAuth();
+    }
+  });
+
+  els.googleBtn?.addEventListener("click", async () => {
+    if (!canUseAuth()) return;
+    clearAuthError();
+    els.googleBtn.disabled = true;
+    try {
+      await signInWithGoogle();
+      showToast(t("profile.signedIn"));
+      refreshSignedInContent();
+      renderCart();
+    } catch (err) {
+      console.error(err);
+      showAuthError(mapAuthError(err));
     } finally {
       els.googleBtn.disabled = false;
     }
@@ -226,22 +384,24 @@ function bindAuth() {
     try {
       await signOutUser();
       showToast(t("profile.signedOut"));
+      updateProfileVisibility();
     } catch (err) {
       console.error(err);
     }
   });
 
-  onAuthChange(() => {
-    renderProfileHeader();
-    renderWishlist();
-    renderProfileCart();
-    renderCart();
-    renderRecommendations(window.__profileCatalog ?? []);
+  onAuthChange((user) => {
+    if (user) {
+      refreshSignedInContent();
+      renderCart();
+    } else {
+      updateProfileVisibility();
+    }
   });
 }
 
 function renderWishlist() {
-  if (!els.wishlist) return;
+  if (!els.wishlist || !getCurrentUser()) return;
   const items = getWishlist();
 
   if (!items.length) {
@@ -321,7 +481,7 @@ function pickRecommendations(products, wishlist, limit = 4) {
 }
 
 function renderRecommendations(products) {
-  if (!els.recs) return;
+  if (!els.recs || !getCurrentUser()) return;
   const recs = pickRecommendations(products, getWishlist(), 4);
 
   if (!recs.length) {
@@ -360,7 +520,9 @@ function renderRecommendations(products) {
 }
 
 function renderProfileCart() {
-  if (!els.cartItems || !els.cartFooter || !els.cartTotal) return;
+  if (!els.cartItems || !els.cartFooter || !els.cartTotal || !getCurrentUser()) {
+    return;
+  }
 
   const lines = getCartLines();
 
@@ -423,24 +585,14 @@ function initMobileNav() {
   nav.querySelectorAll("a").forEach((link) => link.addEventListener("click", shut));
 }
 
-function bindProfileEdit() {
-  els.editBtn?.addEventListener("click", () => {
-    if (getCurrentUser()) return;
-    const profile = readProfile();
-    const name = prompt(t("profile.promptName"), profile.name);
-    if (name == null) return;
-    const email = prompt(t("profile.promptEmail"), profile.email);
-    if (email == null) return;
-    writeProfile({ name: name.trim() || "Guest", email: email.trim() });
-    renderProfileHeader();
-  });
-
+function bindCheckout() {
   els.checkoutBtn?.addEventListener("click", () => {
     alert(t("profile.checkoutSoon"));
   });
 }
 
 async function loadCatalog() {
+  if (!getCurrentUser()) return;
   try {
     const { products } = await fetchAllCJProducts();
     window.__profileCatalog = products;
@@ -453,18 +605,9 @@ async function loadCatalog() {
   }
 }
 
-async function initProfilePage() {
-  await bootstrap();
-  initMobileNav();
-  initCart();
-  renderAuthUi();
-  bindAuth();
-  renderWishlist();
-  renderProfileCart();
-  bindProfileEdit();
-  await loadCatalog();
-
+function bindStorageSync() {
   window.addEventListener("storage", (e) => {
+    if (!getCurrentUser()) return;
     if (e.key === "babyhug-cart" || e.key === "babyhug-wishlist") {
       renderWishlist();
       renderProfileCart();
@@ -474,11 +617,13 @@ async function initProfilePage() {
   });
 
   window.addEventListener("babyhug-wishlist-updated", () => {
+    if (!getCurrentUser()) return;
     renderWishlist();
     renderRecommendations(window.__profileCatalog ?? []);
   });
 
   window.addEventListener("babyhug-cart-updated", () => {
+    if (!getCurrentUser()) return;
     renderProfileCart();
     renderCart();
     renderWishlist();
@@ -486,4 +631,23 @@ async function initProfilePage() {
   });
 }
 
-initProfilePage();
+async function initProfilePage() {
+  await bootstrap();
+  initMobileNav();
+  initCart();
+  renderAuthUi();
+  bindAuth();
+  bindCheckout();
+  bindStorageSync();
+
+  if (getCurrentUser()) {
+    refreshSignedInContent();
+  }
+}
+
+initProfilePage().catch((err) => {
+  console.error("Profile page failed to start:", err);
+  import("./i18n.js")
+    .then(({ initI18n }) => initI18n())
+    .finally(() => renderAuthUi());
+});

@@ -12,8 +12,8 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Epilogue:wght@400;500&family=Libre+Baskerville:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="stylesheet" href="css/profile.css" />
+    <link rel="stylesheet" href="css/styles.css?v=20260602" />
+    <link rel="stylesheet" href="css/profile.css?v=20260602d" />
   </head>
   <body class="page-profile" data-page="profile">
     <div class="promo-bar" aria-hidden="true">
@@ -79,45 +79,98 @@
     <div class="profile-wrap">
       <main class="profile-main">
         <div id="profile-auth-banner" class="profile-auth-banner">
-          <p id="profile-auth-hint"></p>
+          <h2 id="profile-auth-title" class="profile-auth-title">Sign in</h2>
+          <p id="profile-auth-hint" class="profile-auth-hint"></p>
+          <p id="profile-auth-error" class="profile-auth-error" role="alert" hidden></p>
+
+          <form id="profile-email-form" class="profile-email-form" novalidate>
+            <div class="profile-field profile-name-field" id="profile-name-field">
+              <label for="profile-name-input">Name</label>
+              <input
+                id="profile-name-input"
+                type="text"
+                name="name"
+                autocomplete="name"
+                maxlength="80"
+              />
+            </div>
+            <div class="profile-field">
+              <label for="profile-email-input">Email or username</label>
+              <input
+                id="profile-email-input"
+                type="text"
+                name="login"
+                autocomplete="username"
+                required
+              />
+            </div>
+            <div class="profile-field">
+              <label for="profile-password-input">Password</label>
+              <input
+                id="profile-password-input"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                minlength="6"
+                required
+              />
+            </div>
+            <button type="submit" id="profile-email-submit" class="profile-email-submit">
+              Sign in
+            </button>
+          </form>
+
+          <div class="profile-auth-divider" aria-hidden="true"><span>or</span></div>
+
           <button type="button" id="profile-google-btn" class="profile-google-btn">
             <span class="profile-google-icon" aria-hidden="true">G</span>
             <span id="profile-google-label">Sign in with Google</span>
           </button>
+
+          <p class="profile-auth-links">
+            <button type="button" id="profile-toggle-mode" class="profile-auth-link">
+              Create an account
+            </button>
+            <span id="profile-links-sep" class="profile-auth-sep" aria-hidden="true" hidden>·</span>
+            <button type="button" id="profile-forgot-password" class="profile-auth-link" hidden>
+              Forgot password?
+            </button>
+          </p>
         </div>
 
-        <div class="profile-row">
-          <div id="profile-avatar" class="profile-avatar" aria-hidden="true">?</div>
-          <div class="profile-identity">
-            <div id="profile-name" class="profile-name">Guest</div>
-            <div id="profile-email" class="profile-email"></div>
-            <p id="profile-signed-in-as" class="profile-signed-in-as" hidden></p>
+        <div id="profile-account" class="profile-account" hidden>
+          <div class="profile-row">
+            <div id="profile-avatar" class="profile-avatar" aria-hidden="true"></div>
+            <div class="profile-identity">
+              <div id="profile-name" class="profile-name"></div>
+              <div id="profile-email" class="profile-email"></div>
+              <p id="profile-signed-in-as" class="profile-signed-in-as"></p>
+            </div>
+            <div class="profile-row-actions">
+              <button type="button" id="profile-signout-btn" class="profile-signout-btn">Sign out</button>
+            </div>
           </div>
-          <div class="profile-row-actions">
-            <button type="button" id="profile-edit-btn" class="profile-edit-btn">Edit</button>
-            <button type="button" id="profile-signout-btn" class="profile-signout-btn" hidden>Sign out</button>
-          </div>
+
+          <h2 id="profile-wishlist-title" class="profile-section-title">Wishlist</h2>
+          <div id="profile-wishlist" class="profile-wish-list"></div>
+
+          <h2 id="profile-recs-title" class="profile-section-title">Your baby might like</h2>
+          <p id="profile-recs-sub" class="profile-section-sub">Based on what you've been browsing</p>
+          <div id="profile-recs" class="profile-rec-grid"></div>
+
+          <section class="profile-cart-section" aria-labelledby="profile-cart-title">
+            <h2 id="profile-cart-title" class="profile-cart-title">Cart</h2>
+            <div id="profile-cart-items"></div>
+            <div id="profile-cart-footer" hidden>
+              <div class="profile-cart-total-row">
+                <span class="profile-cart-total-label">Total</span>
+                <span id="profile-cart-total" class="profile-cart-total-val"></span>
+              </div>
+              <button type="button" id="profile-checkout-btn" class="profile-checkout-btn">Checkout</button>
+            </div>
+          </section>
         </div>
-
-        <h2 id="profile-wishlist-title" class="profile-section-title">Wishlist</h2>
-        <div id="profile-wishlist" class="profile-wish-list"></div>
-
-        <h2 id="profile-recs-title" class="profile-section-title">Your baby might like</h2>
-        <p id="profile-recs-sub" class="profile-section-sub">Based on what you've been browsing</p>
-        <div id="profile-recs" class="profile-rec-grid"></div>
       </main>
-
-      <section class="profile-cart-section" aria-labelledby="profile-cart-title">
-        <h2 id="profile-cart-title" class="profile-cart-title">Cart</h2>
-        <div id="profile-cart-items"></div>
-        <div id="profile-cart-footer" hidden>
-          <div class="profile-cart-total-row">
-            <span class="profile-cart-total-label">Total</span>
-            <span id="profile-cart-total" class="profile-cart-total-val"></span>
-          </div>
-          <button type="button" id="profile-checkout-btn" class="profile-checkout-btn">Checkout</button>
-        </div>
-      </section>
 
       <p id="profile-toast" class="profile-toast" role="status" aria-live="polite"></p>
     </div>
@@ -131,6 +184,6 @@
       </div>
     </footer>
 
-    <script type="module" src="js/profile.js"></script>
+    <script type="module" src="js/profile.js?v=20260602e"></script>
   </body>
 </html>

@@ -127,8 +127,7 @@ const STRINGS = {
     "profile.recsTitle": "Your baby might like",
     "profile.recsSub": "Based on what you've been browsing",
     "profile.cart": "Cart",
-    "profile.edit": "Edit",
-    "profile.noEmail": "Add your email",
+    "profile.account": "Your account",
     "profile.wishlistEmpty": "Your wishlist is empty. Save items from the shop.",
     "profile.recsEmpty": "Browse the shop to see recommendations.",
     "profile.recsError": "Could not load recommendations.",
@@ -143,10 +142,35 @@ const STRINGS = {
     "profile.promptEmail": "Your email",
     "profile.qty": "Qty {n}",
     "profile.saveWishlist": "Save to wishlist",
+    "profile.signInTitle": "Sign in",
+    "profile.createAccountTitle": "Create account",
+    "profile.signInEmail": "Sign in",
+    "profile.createAccount": "Create account",
+    "profile.createAccountLink": "Create an account",
+    "profile.haveAccount": "Already have an account? Sign in",
+    "profile.forgotPassword": "Forgot password?",
+    "profile.email": "Email",
+    "profile.password": "Password",
+    "profile.name": "Name",
     "profile.signInGoogle": "Sign in with Google",
     "profile.signOut": "Sign out",
+    "profile.or": "or",
     "profile.authHint":
-      "Sign in with Google to sync your wishlist and cart across devices.",
+      "Sign in with email or Google to view your profile, wishlist, and cart.",
+    "profile.fillEmailPassword": "Enter email/username and password.",
+    "profile.enterEmailFirst": "Enter your email address first.",
+    "profile.resetEmailSent": "Password reset email sent — check your inbox.",
+    "profile.accountCreated": "Account created — welcome to Baby Hug!",
+    "profile.signedInWithEmail": "Signed in with email",
+    "profile.signedInGeneric": "Signed in",
+    "profile.errorInvalidEmail": "Please enter a valid email address.",
+    "profile.errorWrongCredentials": "Incorrect email or password.",
+    "profile.errorEmailInUse": "An account with this email already exists.",
+    "profile.errorWeakPassword": "Password must be at least 6 characters.",
+    "profile.errorTooManyRequests": "Too many attempts. Try again later.",
+    "profile.errorUserDisabled": "This account has been disabled.",
+    "profile.errorEmailNotEnabled":
+      "Email sign-in is not enabled in Firebase. Enable Email/Password in the Firebase Console.",
     "profile.authNotConfigured":
       "Cloud sign-in is not configured yet. Copy js/firebase-config.example.js to js/firebase-config.js.",
     "profile.signedInWithGoogle": "Signed in with Google",
@@ -274,8 +298,7 @@ const STRINGS = {
     "profile.recsTitle": "Ditt barn kanske gillar",
     "profile.recsSub": "Baserat på vad du tittat på",
     "profile.cart": "Varukorg",
-    "profile.edit": "Redigera",
-    "profile.noEmail": "Lägg till din e-post",
+    "profile.account": "Ditt konto",
     "profile.wishlistEmpty": "Din önskelista är tom. Spara produkter från butiken.",
     "profile.recsEmpty": "Handla i butiken för att se rekommendationer.",
     "profile.recsError": "Kunde inte ladda rekommendationer.",
@@ -290,10 +313,35 @@ const STRINGS = {
     "profile.promptEmail": "Din e-post",
     "profile.qty": "Antal {n}",
     "profile.saveWishlist": "Spara i önskelistan",
+    "profile.signInTitle": "Logga in",
+    "profile.createAccountTitle": "Skapa konto",
+    "profile.signInEmail": "Logga in",
+    "profile.createAccount": "Skapa konto",
+    "profile.createAccountLink": "Skapa ett konto",
+    "profile.haveAccount": "Har du redan konto? Logga in",
+    "profile.forgotPassword": "Glömt lösenord?",
+    "profile.email": "E-post",
+    "profile.password": "Lösenord",
+    "profile.name": "Namn",
     "profile.signInGoogle": "Logga in med Google",
     "profile.signOut": "Logga ut",
+    "profile.or": "eller",
     "profile.authHint":
-      "Logga in med Google för att synka önskelista och varukorg mellan enheter.",
+      "Logga in med e-post eller Google för att se din profil, önskelista och varukorg.",
+    "profile.fillEmailPassword": "Ange e-post/användarnamn och lösenord.",
+    "profile.enterEmailFirst": "Ange din e-postadress först.",
+    "profile.resetEmailSent": "E-post för återställning skickad — kolla inkorgen.",
+    "profile.accountCreated": "Konto skapat — välkommen till Baby Hug!",
+    "profile.signedInWithEmail": "Inloggad med e-post",
+    "profile.signedInGeneric": "Inloggad",
+    "profile.errorInvalidEmail": "Ange en giltig e-postadress.",
+    "profile.errorWrongCredentials": "Fel e-post eller lösenord.",
+    "profile.errorEmailInUse": "Det finns redan ett konto med den här e-posten.",
+    "profile.errorWeakPassword": "Lösenordet måste vara minst 6 tecken.",
+    "profile.errorTooManyRequests": "För många försök. Försök igen senare.",
+    "profile.errorUserDisabled": "Det här kontot har inaktiverats.",
+    "profile.errorEmailNotEnabled":
+      "E-postinloggning är inte aktiverad i Firebase. Aktivera E-post/lösenord i Firebase Console.",
     "profile.authNotConfigured":
       "Molnbaserad inloggning är inte konfigurerad. Kopiera js/firebase-config.example.js till js/firebase-config.js.",
     "profile.signedInWithGoogle": "Inloggad med Google",
@@ -440,10 +488,23 @@ function applyProfileTranslations() {
   setText(document.getElementById("profile-recs-title"), "profile.recsTitle");
   setText(document.getElementById("profile-recs-sub"), "profile.recsSub");
   setText(document.getElementById("profile-cart-title"), "profile.cart");
+  setText(document.getElementById("profile-auth-title"), "profile.signInTitle");
   setText(document.getElementById("profile-auth-hint"), "profile.authHint");
   setText(document.getElementById("profile-google-label"), "profile.signInGoogle");
-  const editBtn = document.getElementById("profile-edit-btn");
-  if (editBtn) editBtn.textContent = t("profile.edit");
+  setText(document.getElementById("profile-email-submit"), "profile.signInEmail");
+  setText(document.getElementById("profile-toggle-mode"), "profile.createAccountLink");
+  setText(document.getElementById("profile-forgot-password"), "profile.forgotPassword");
+
+  const emailLabel = document.querySelector('label[for="profile-email-input"]');
+  const passLabel = document.querySelector('label[for="profile-password-input"]');
+  const nameLabel = document.querySelector('label[for="profile-name-input"]');
+  if (emailLabel) emailLabel.textContent = getLocale() === "sv" ? "E-post eller användarnamn" : "Email or username";
+  if (passLabel) passLabel.textContent = t("profile.password");
+  if (nameLabel) nameLabel.textContent = t("profile.name");
+
+  const divider = document.querySelector(".profile-auth-divider span");
+  if (divider) divider.textContent = t("profile.or");
+
   const signOut = document.getElementById("profile-signout-btn");
   if (signOut) signOut.textContent = t("profile.signOut");
   const checkout = document.getElementById("profile-checkout-btn");

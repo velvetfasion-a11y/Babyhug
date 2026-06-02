@@ -329,6 +329,10 @@ app.get(["/product", "/product/"], (req, res) => {
   res.redirect(302, `/product.html${query}`);
 });
 
+app.get(["/profile", "/profile/"], (_req, res) => {
+  res.redirect(302, "/profile.html");
+});
+
 // ── HTML pages (explicit routes so product.html is always served) ─
 
 const HTML_PAGES = [
@@ -357,7 +361,10 @@ app.use(
       if (filePath.endsWith(".html")) {
         res.setHeader("Cache-Control", isProd ? "public, max-age=3600" : "no-cache");
       } else if (/\.(js|css)$/.test(filePath)) {
-        res.setHeader("Cache-Control", isProd ? "public, max-age=604800" : "no-cache");
+        res.setHeader(
+          "Cache-Control",
+          isProd ? "public, max-age=86400, must-revalidate" : "no-cache"
+        );
       }
     },
   })

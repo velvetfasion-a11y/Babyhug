@@ -1,5 +1,11 @@
 .page-profile {
   background: var(--cream);
+  min-height: 100vh;
+}
+
+.page-profile .profile-wrap {
+  min-height: 50vh;
+  padding-bottom: 32px;
 }
 
 .profile-wrap {
@@ -12,30 +18,169 @@
   padding: clamp(24px, 4vw, 32px) 20px 0;
 }
 
+.profile-is-signed-out .profile-auth-banner {
+  margin-top: 8px;
+  margin-bottom: 32px;
+}
+
 .profile-auth-banner {
+  max-width: 300px;
+  margin-inline: auto;
   margin-bottom: 20px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 12px 14px 14px;
+  border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--forest) 12%, transparent);
   background: color-mix(in srgb, var(--cream) 60%, white);
 }
 
-.profile-auth-banner p {
+.profile-auth-banner:not(.is-signup) .profile-name-field {
+  display: none !important;
+}
+
+.profile-auth-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--forest);
+  font-family: var(--font-display);
+}
+
+.profile-auth-hint {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--sage-mid);
-  line-height: 1.45;
+  line-height: 1.4;
+}
+
+.profile-auth-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8b3030;
+  background: color-mix(in srgb, #e8b4b4 35%, white);
+  border: 1px solid color-mix(in srgb, #c45c5c 25%, transparent);
+}
+
+.profile-email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-field label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--sage-mid);
+}
+
+.profile-field input {
+  width: 100%;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--forest) 18%, transparent);
+  background: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--forest);
+}
+
+.profile-field input:focus {
+  outline: 2px solid color-mix(in srgb, var(--forest) 25%, transparent);
+  outline-offset: 1px;
+}
+
+.profile-email-submit {
+  margin-top: 2px;
+  padding: 9px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--forest);
+  background: var(--forest);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.profile-email-submit:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.profile-email-submit:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.profile-auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 8px;
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+
+.profile-auth-sep {
+  color: var(--sage-mid);
+}
+
+.profile-auth-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--forest);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.profile-auth-link:hover {
+  opacity: 0.75;
+}
+
+.profile-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  color: var(--sage-mid);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profile-auth-divider::before,
+.profile-auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--forest) 12%, transparent);
 }
 
 .profile-google-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 18px;
-  border-radius: 24px;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--forest) 18%, transparent);
   background: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--forest);
   cursor: pointer;
@@ -142,20 +287,6 @@
 
 .profile-signout-btn:hover {
   color: var(--forest);
-}
-
-.profile-edit-btn {
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--forest) 20%, transparent);
-  background: transparent;
-  font-size: 11px;
-  color: var(--forest);
-  cursor: pointer;
-}
-
-.profile-edit-btn:hover {
-  background: color-mix(in srgb, var(--forest) 6%, transparent);
 }
 
 .profile-section-title {
